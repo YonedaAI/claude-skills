@@ -63,7 +63,7 @@ Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Ve
 
 Every paper goes through two mandatory review cycles:
 
-1. **Gemini 2.5 Pro peer review** via CLI — adversarial review (not self-review), saved to `reviews/`
+1. **Gemini 3.1 Pro peer review** via CLI — adversarial review (not self-review), saved to `reviews/`
 2. **Codex formatting check** — LaTeX compilation, references, styling issues
 
 Both cycles include fix iterations (max 2 per cycle). The website also gets a Codex review before Vercel deployment.
@@ -89,7 +89,7 @@ project/
 ## Requirements
 
 - Claude Code with plugins enabled
-- `gemini` CLI (Gemini 2.5 Pro peer review)
+- `gemini` CLI (Gemini 3.1 Pro peer review)
 - `pdflatex` (LaTeX compilation)
 - `pandoc` (LaTeX to HTML conversion)
 - `ghc` / `cabal` / `stack` (Haskell verification)

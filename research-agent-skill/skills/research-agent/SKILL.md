@@ -23,7 +23,7 @@ The command passes these parsed values:
 
 Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they are not optional:
 
-1. **Gemini peer review** — Every paper (workers + synthesis) MUST be reviewed by `gemini -m gemini-2.5-pro`. The review MUST be saved to `reviews/`. Skipping this is a pipeline failure.
+1. **Gemini peer review** — Every paper (workers + synthesis) MUST be reviewed by `gemini -m gemini-3.1-pro`. The review MUST be saved to `reviews/`. Skipping this is a pipeline failure.
 2. **Codex formatting check** — Every paper MUST be checked by `codex:rescue` after review fixes. Skipping this is a pipeline failure.
 3. **Codex website review** — The website MUST be reviewed by `codex:rescue` BEFORE Vercel deployment (Step 6d). Skipping this is a pipeline failure.
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
@@ -121,7 +121,7 @@ If the topic involves mathematics, also create Haskell modules in `src/$TOPIC/`:
 ### Stage 2 — Gemini Peer Review
 Run peer review via Gemini CLI. Execute this Bash command:
 
-    cat papers/latex/$TOPIC.tex | gemini -m gemini-2.5-pro -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback with specific line-level suggestions organized by severity (critical, major, minor)."
+    cat papers/latex/$TOPIC.tex | gemini -m gemini-3.1-pro -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback with specific line-level suggestions organized by severity (critical, major, minor)."
 
 Save the review output to `reviews/$TOPIC-review.md`.
 
@@ -210,7 +210,7 @@ Topics: $TOPICS (all of them)
    - Shows how topics compose hierarchically
    - Minimum 20 pages, arxiv-style
 
-4. Run Gemini peer review (same as workers — gemini -m gemini-2.5-pro)
+4. Run Gemini peer review (same as workers — gemini -m gemini-3.1-pro)
 5. Fix review issues (max 2 iterations)
 6. Run Codex LaTeX check via codex:rescue skill, fix issues
 7. Add GrokRxiv sidebar
@@ -564,7 +564,7 @@ Website: $VERCEL_URL
 GitHub: https://github.com/$GITHUB_ORG/$PROJECT
 Social Posts: [count] posts across 4 platforms
 
-All papers peer-reviewed by Gemini 2.5 Pro and format-checked by Codex.
+All papers peer-reviewed by Gemini 3.1 Pro and format-checked by Codex.
 ```
 
 ---
