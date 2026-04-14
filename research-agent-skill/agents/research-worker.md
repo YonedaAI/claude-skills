@@ -66,7 +66,14 @@ This is an iterative loop. You submit the paper to Gemini for external review, f
 
 **Step A — Submit to Gemini:**
 
-    cat papers/latex/$TOPIC.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." > reviews/$TOPIC-review-round-N.md
+    echo "---" > reviews/$TOPIC-review-round-N.md
+    echo "reviewer: $RESEARCH_GEMINI_MODEL" >> reviews/$TOPIC-review-round-N.md
+    echo "paper: $TOPIC" >> reviews/$TOPIC-review-round-N.md
+    echo "round: N" >> reviews/$TOPIC-review-round-N.md
+    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-review-round-N.md
+    echo "---" >> reviews/$TOPIC-review-round-N.md
+    echo "" >> reviews/$TOPIC-review-round-N.md
+    cat papers/latex/$TOPIC.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/$TOPIC-review-round-N.md
 
 (Replace N with the round number: 1, 2, 3, 4)
 
@@ -119,9 +126,18 @@ Requirements:
 Invoke `codex:rescue` with this prompt:
 "Review papers/latex/$TOPIC.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and fixes."
 
-After Codex responds, fix all identified issues. Max 2 fix iterations.
+After Codex responds, save the Codex review output to `reviews/$TOPIC-codex-review.md` with a header:
 
-**GATE CHECK:** You must have invoked the codex:rescue skill. If you did not call it, you have NOT completed this stage.
+    echo "---" > reviews/$TOPIC-codex-review.md
+    echo "reviewer: codex (OpenAI)" >> reviews/$TOPIC-codex-review.md
+    echo "type: formatting" >> reviews/$TOPIC-codex-review.md
+    echo "paper: $TOPIC" >> reviews/$TOPIC-codex-review.md
+    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-codex-review.md
+    echo "---" >> reviews/$TOPIC-codex-review.md
+
+Then append the Codex output to that file. Fix all identified issues. Max 2 fix iterations.
+
+**GATE CHECK:** `reviews/$TOPIC-codex-review.md` must exist. You must have invoked the codex:rescue skill. If you did not call it, you have NOT completed this stage.
 
 ### Stage 6 — GrokRxiv Sidebar
 Add to preamble (see `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` for template).

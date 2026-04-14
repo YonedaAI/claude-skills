@@ -41,7 +41,14 @@ You are a synthesis agent. You create a unifying paper that combines multiple re
 
    **Step A — Submit to Gemini:**
 
-       cat papers/latex/synthesis.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." > reviews/synthesis-review-round-N.md
+       echo "---" > reviews/synthesis-review-round-N.md
+       echo "reviewer: $RESEARCH_GEMINI_MODEL" >> reviews/synthesis-review-round-N.md
+       echo "paper: synthesis" >> reviews/synthesis-review-round-N.md
+       echo "round: N" >> reviews/synthesis-review-round-N.md
+       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-review-round-N.md
+       echo "---" >> reviews/synthesis-review-round-N.md
+       echo "" >> reviews/synthesis-review-round-N.md
+       cat papers/latex/synthesis.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/synthesis-review-round-N.md
 
    If `gemini` CLI is not available, create `reviews/synthesis-review-round-1.md` with "SKIPPED: gemini CLI not available". Do NOT substitute your own review. Skip to step 7.
 
@@ -75,7 +82,16 @@ You are a synthesis agent. You create a unifying paper that combines multiple re
 
    Invoke `codex:rescue` with: "Review papers/latex/synthesis.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling. List all issues."
 
-   Fix all issues. Max 2 iterations.
+   Save the Codex output to `reviews/synthesis-codex-review.md` with header:
+
+       echo "---" > reviews/synthesis-codex-review.md
+       echo "reviewer: codex (OpenAI)" >> reviews/synthesis-codex-review.md
+       echo "type: formatting" >> reviews/synthesis-codex-review.md
+       echo "paper: synthesis" >> reviews/synthesis-codex-review.md
+       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-codex-review.md
+       echo "---" >> reviews/synthesis-codex-review.md
+
+   Append Codex output. Fix all issues. Max 2 iterations.
 
 8. **GrokRxiv sidebar**: Add to preamble
 
