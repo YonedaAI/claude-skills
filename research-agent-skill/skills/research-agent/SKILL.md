@@ -41,11 +41,11 @@ Read these at the start of execution. All have sensible defaults — none are re
 
 Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they are not optional:
 
-1. **Gemini peer review** — Every paper (workers + synthesis) MUST be reviewed by `gemini -m $RESEARCH_GEMINI_MODEL`. The review MUST be saved to `reviews/`. Skipping this is a pipeline failure.
-2. **Codex formatting check** — Every paper MUST be checked by `codex:rescue` after review fixes. Skipping this is a pipeline failure.
+1. **Gemini peer review loop** — Every paper (workers + synthesis) MUST be reviewed by `gemini -m $RESEARCH_GEMINI_MODEL` in an iterative loop: review → fix → re-review → fix → ... until the reviewer's VERDICT is ACCEPT or MINOR REVISIONS. Max 4 rounds per paper. Reviews saved to `reviews/$TOPIC-review-round-N.md`. Skipping this is a pipeline failure.
+2. **Codex formatting check** — Every paper MUST be checked by `codex:rescue` after the review loop. Skipping this is a pipeline failure.
 3. **Codex website review** — The website MUST be reviewed by `codex:rescue` BEFORE Vercel deployment (Step 6d). Skipping this is a pipeline failure.
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
-5. **Fix cycles** — After each review (Gemini or Codex), you MUST fix the identified issues before proceeding. Max 2 iterations per cycle.
+5. **Review-fix loops** — After each Gemini review, you MUST fix critical/major issues and re-submit until the verdict is publishable (ACCEPT/MINOR REVISIONS) or 4 rounds are exhausted. After Codex review, max 2 fix iterations.
 
 If you present a plan to the user, the plan MUST explicitly list all 5 of the above as separate line items. Do not collapse them into a phase header.
 
@@ -138,24 +138,15 @@ If the topic involves mathematics, also create Haskell modules in `src/$TOPIC/`:
 - Supporting modules for key abstractions
 - Each file must compile with GHC
 
-### Stage 2 — Gemini Peer Review
-Run peer review via Gemini CLI. Execute this Bash command:
+### Stages 2–3 — Gemini Review-Fix Loop
+Run iterative peer review via Gemini CLI. Submit paper → fix issues → re-submit until verdict is ACCEPT or MINOR REVISIONS. Max 4 rounds.
 
-    cat papers/latex/$TOPIC.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback with specific line-level suggestions organized by severity (critical, major, minor)."
+Each round: run Bash command to pipe paper to gemini with review prompt that ends with a VERDICT line (REJECT / MAJOR REVISIONS / MINOR REVISIONS / ACCEPT). Save each round to `reviews/$TOPIC-review-round-N.md`. Fix critical/major issues between rounds. Copy final review to `reviews/$TOPIC-review.md`.
 
-Save the review output to `reviews/$TOPIC-review.md`.
-
-### Stage 3 — Fix Review Issues
-Read `reviews/$TOPIC-review.md` and revise `papers/latex/$TOPIC.tex` to address ALL critical and major feedback.
-Also fix any Haskell code issues mentioned in the review.
-Maximum 2 revision iterations.
+See the research-worker agent definition for the exact Bash command and loop logic.
 
 ### Stage 4 — Codex LaTeX Formatting Check
-Use the Codex plugin to review LaTeX formatting:
-Invoke the `codex:rescue` skill with prompt:
-"Review papers/latex/$TOPIC.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and fixes."
-
-Fix all issues identified by Codex. Maximum 2 fix iterations.
+Invoke the `codex:rescue` skill to review LaTeX formatting. Fix all issues. Max 2 fix iterations.
 
 ### Stage 5 — Add GrokRxiv Sidebar
 Add the GrokRxiv DOI sidebar to page 1 of the paper. See references/paper-format.md for the template.
@@ -183,15 +174,45 @@ Run these Bash commands:
 
 MANDATORY CHECKLIST — Do NOT proceed to the next stage until each box is done:
 [ ] Stage 1: papers/latex/$TOPIC.tex exists and is >=20 pages
-[ ] Stage 2: reviews/$TOPIC-review.md exists with Gemini output
-[ ] Stage 3: Paper revised to address ALL critical/major review feedback
-[ ] Stage 4: Codex formatting check run, issues fixed
+[ ] Stages 2–3: reviews/$TOPIC-review.md exists with Gemini ACCEPT/MINOR REVISIONS verdict
+[ ] Stage 4: Codex formatting check run via codex:rescue skill, issues fixed
 [ ] Stage 5: GrokRxiv sidebar added to page 1
 [ ] Stage 6: papers/pdf/$TOPIC.pdf exists and compiles cleanly
 [ ] Stage 7: images/$TOPIC.png exists (300 DPI cover)
 
-When complete, report: topic name, paper page count, whether Haskell code was created, PDF compilation status, number of review issues addressed, number of Codex issues fixed.
+When complete, report: topic name, paper page count, whether Haskell code was created, PDF compilation status, Gemini review (rounds completed, final verdict), Codex issues (count found → count fixed).
 ```
+
+**MANDATORY — Post-Worker Review Verification:**
+
+After ALL workers complete, verify that reviews actually happened and reached a publishable verdict. Run this Bash command:
+
+    echo "=== REVIEW VERIFICATION ==="
+    for topic in $TOPICS; do
+      if test -f reviews/$topic-review.md; then
+        size=$(wc -c < reviews/$topic-review.md)
+        verdict=$(tail -20 reviews/$topic-review.md | grep -i "VERDICT" | tail -1)
+        rounds=$(ls reviews/$topic-review-round-*.md 2>/dev/null | wc -l)
+        if [ "$size" -lt 100 ]; then
+          echo "FAIL: reviews/$topic-review.md too small ($size bytes) — review was likely skipped"
+        elif [ "$rounds" -eq 0 ]; then
+          echo "FAIL: No review round files — worker did not run iterative review loop"
+        else
+          echo "PASS: reviews/$topic-review.md ($size bytes, $rounds rounds) $verdict"
+        fi
+      else
+        echo "FAIL: reviews/$topic-review.md MISSING — worker skipped Gemini review entirely"
+      fi
+    done
+
+If ANY review file is MISSING, too small, or has no round files, the worker skipped the review loop. You MUST run the full review loop for that topic yourself:
+
+1. Submit to Gemini with VERDICT prompt (see research-worker agent for exact command)
+2. Fix critical/major issues
+3. Re-submit until ACCEPT/MINOR REVISIONS or 4 rounds
+4. Copy final round to `reviews/$TOPIC-review.md`
+
+Do NOT proceed to Phase 4 until ALL reviews pass verification.
 
 **MANDATORY — Slack notification per completed topic:**
 
@@ -202,9 +223,9 @@ Research paper completed: $TOPIC
 Pages: [count]
 PDF: papers/pdf/$TOPIC.pdf
 Haskell: [yes/no]
-Gemini review: [issues found] → [issues fixed]
+Gemini review: [N] rounds, final verdict: [ACCEPT/MINOR REVISIONS/etc]
 Codex check: [issues found] → [issues fixed]
-Review file: reviews/$TOPIC-review.md
+Review files: reviews/$TOPIC-review-round-*.md
 ```
 
 ---
@@ -537,6 +558,8 @@ Review the Next.js research website at $PROJECT_PATH/$PROJECT/website/ for:
 - Sidebar TOC: verify active section tracking uses scroll position (last heading above viewport), NOT IntersectionObserver with narrow rootMargin. Active item must highlight correctly when scrolling through long sections.
 - Scroll behavior: check all scroll-dependent features work in static export (no JS on first load for SSG)
 - React hydration: verify paper content uses ref callback with node.innerHTML to avoid KaTeX HTML hydration mismatches. Do NOT use React's built-in HTML insertion — it mangles KaTeX spans.
+- OG meta tags: verify metadataBase is set in root layout (required for absolute OG URLs). Check that every paper page has og:image, og:url, og:title, og:description AND twitter:card + twitter:images in generateMetadata(). Homepage must have its own OG image too. Missing metadataBase = broken social previews on Facebook/LinkedIn/Twitter.
+- After build, grep static HTML in out/ for og:image and twitter:card tags — every paper page must have them with absolute URLs.
 - Performance issues (large bundles, unoptimized images)
 List all issues with file paths and line numbers.
 ```
@@ -551,18 +574,31 @@ Run these Bash commands:
     npm run build
     npx vercel --prod --yes 2>&1 | tee /tmp/vercel-deploy.log
 
-**MANDATORY — Extract and validate the Vercel URL correctly:**
+**MANDATORY — Extract, validate, and persist the Vercel URL:**
 
-The Vercel CLI output contains the production URL. Extract it with:
+The Vercel CLI output contains the production URL. **NEVER guess or construct the URL from the project name** — Vercel assigns its own subdomain which rarely matches.
 
-    grep -oE 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -1
+Extract and save to disk with this single command block:
 
-Store as `$VERCEL_URL`. Before using in Slack or social posts, VERIFY:
-1. The URL ends in `.vercel.app` (plain ASCII, no punycode like `.xn--`)
-2. The URL is a valid HTTPS URL with no trailing special characters
-3. Test with: `curl -sI "$VERCEL_URL" | head -1` — must return `HTTP/2 200` or `HTTP/2 308`
+    VERCEL_URL=$(grep -oE 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -1)
+    echo "$VERCEL_URL" > $PROJECT_PATH/$PROJECT/.vercel-url
+    echo "Extracted URL: $VERCEL_URL"
 
-If the URL contains punycode (`.xn--`), the extraction grabbed extra characters. Re-extract using the grep command above. NEVER send a punycode URL to Slack — it will be unclickable.
+**GATE CHECK — Validate before proceeding:**
+
+    URL=$(cat $PROJECT_PATH/$PROJECT/.vercel-url)
+    echo "$URL" | grep -qE '^https://[a-zA-Z0-9._-]+\.vercel\.app$' && echo "URL OK: $URL" || echo "URL INVALID: $URL"
+    echo "$URL" | grep -q '\.xn--' && echo "FAIL: punycode detected" || echo "PASS: no punycode"
+    curl -sI "$URL" | head -1
+
+The URL must:
+1. End in `.vercel.app` (plain ASCII, no punycode like `.xn--`)
+2. Be a valid HTTPS URL with no trailing special characters
+3. Return `HTTP/2 200` or `HTTP/2 308` from curl
+
+If validation fails, re-extract from the deploy log. NEVER send a punycode URL to Slack.
+
+**CRITICAL: From this point forward, ALWAYS read the URL from `.vercel-url` file — NEVER construct it from the project name, NEVER type it from memory.** Every Slack message or social post that includes the Vercel URL must first run: `cat $PROJECT_PATH/$PROJECT/.vercel-url`
 
 **MANDATORY — Website checkpoint before proceeding:**
 - [ ] Step 6a: docs/papers/*.html exist for all papers
@@ -572,11 +608,16 @@ If the URL contains punycode (`.xn--`), the extraction grabbed extra characters.
 - [ ] Step 6e: Vercel deployment succeeded, $VERCEL_URL captured
 
 **MANDATORY — Slack notification with Vercel URL** using `mcp__claude_ai_Slack__slack_send_message` to `$SLACK_CHANNEL`.
-Before sending, VERIFY the URL: it must end in `.vercel.app` with no punycode (`.xn--`). If malformed, re-extract from `/tmp/vercel-deploy.log` using: `grep -oE 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -1`
+
+Before composing the message, read the URL from disk:
+
+    cat $PROJECT_PATH/$PROJECT/.vercel-url
+
+Use ONLY the value read from that file. Do NOT type a URL from memory or construct one from the project name.
 
 ```
 Website deployed
-URL: $VERCEL_URL
+URL: [value from .vercel-url file]
 Papers: [count] HTML pages
 OG images: [count]
 Codex review: [issues found] → [issues fixed]
@@ -596,8 +637,10 @@ Generate social media posts for each research paper in the project.
 
 Project root: $PROJECT_PATH/$PROJECT
 Papers: [list all topics + synthesis with titles]
-Vercel URL: $VERCEL_URL (or "deployment pending" if not available)
 GitHub URL: https://github.com/$GITHUB_ORG/$PROJECT
+
+IMPORTANT: Read the Vercel URL from disk by running: cat $PROJECT_PATH/$PROJECT/.vercel-url
+Use ONLY the value from that file in all posts. NEVER guess or construct the URL from the project name — Vercel assigns its own subdomain.
 
 For EACH paper, generate posts for 4 platforms. Save each to posts/$PLATFORM/$TOPIC.md
 
@@ -664,10 +707,29 @@ Verify it exists: `test -f $PROJECT_PATH/$PROJECT/README.md && echo "OK" || echo
     # Check for untracked files that should be included
     git status -u
 
+**MANDATORY — Verify PDFs are current (not stale from pre-fix compilation):**
+
+    echo "=== PDF FRESHNESS CHECK ==="
+    cd $PROJECT_PATH/$PROJECT
+    for tex in papers/latex/*.tex; do
+      name=$(basename "$tex" .tex)
+      if test -f "papers/pdf/$name.pdf"; then
+        if test "papers/pdf/$name.pdf" -nt "$tex"; then
+          echo "PASS: $name.pdf is current"
+        else
+          echo "STALE: $name.pdf is older than $name.tex — RECOMPILING"
+          cd papers/latex && pdflatex -interaction=nonstopmode "$name.tex" && pdflatex -interaction=nonstopmode "$name.tex" && cp "$name.pdf" ../pdf/ && cd $PROJECT_PATH/$PROJECT
+        fi
+      else
+        echo "MISSING: $name.pdf — COMPILING"
+        cd papers/latex && pdflatex -interaction=nonstopmode "$name.tex" && pdflatex -interaction=nonstopmode "$name.tex" && cp "$name.pdf" ../pdf/ && cd $PROJECT_PATH/$PROJECT
+      fi
+    done
+
 Verify these directories have content:
 - [ ] `papers/latex/*.tex` — LaTeX source files
-- [ ] `papers/pdf/*.pdf` — compiled PDFs
-- [ ] `reviews/*.md` — peer review output
+- [ ] `papers/pdf/*.pdf` — compiled PDFs (verified current above)
+- [ ] `reviews/*.md` — peer review output (round files + final canonical reviews)
 - [ ] `src/*/` — Haskell source (if math present)
 - [ ] `images/*.png` — cover images
 - [ ] `docs/papers/*.html` — pandoc HTML conversions
@@ -695,7 +757,11 @@ Stage and commit ALL files:
 
 ### Step 8c — Create GitHub Repo
 
-Run these Bash commands:
+First, read the Vercel URL from disk (do NOT guess it):
+
+    VERCEL_URL=$(cat $PROJECT_PATH/$PROJECT/.vercel-url 2>/dev/null || echo "")
+
+Then create the repo:
 
     gh repo create $GITHUB_ORG/$PROJECT --public \
       --description "Research papers: [brief description based on perspective and topics]" \
@@ -704,6 +770,12 @@ Run these Bash commands:
     git push -u origin main
 
 ### Step 8d — Final Slack Summary
+
+**Before composing the message, read the Vercel URL from disk:**
+
+    cat $PROJECT_PATH/$PROJECT/.vercel-url
+
+Use ONLY the value from that file. NEVER construct, guess, or type the URL from memory.
 
 Send to `$SLACK_CHANNEL` via `mcp__claude_ai_Slack__slack_send_message`:
 
@@ -714,7 +786,7 @@ Project: $PROJECT
 Topics: [comma-separated list]
 Papers: [count] research papers + 1 synthesis
 Haskell: [compiled/skipped] ([module count] modules)
-Website: $VERCEL_URL
+Website: [value from .vercel-url file]
 GitHub: https://github.com/$GITHUB_ORG/$PROJECT
 Social Posts: [count] posts across 4 platforms
 

@@ -76,9 +76,19 @@ created: YYYY-MM-DD
 [Post content here]
 ```
 
+## CRITICAL — Vercel URL Handling
+
+**NEVER guess or construct the Vercel URL from the project name.** Vercel assigns its own subdomain.
+
+Before writing any posts, read the URL from disk:
+
+    cat $PROJECT_PATH/$PROJECT/.vercel-url
+
+Use ONLY the value from that file in all posts. If the file doesn't exist, use a placeholder `[VERCEL_URL]` and note it in your report.
+
 ## Quality Rules
 - Every post must be accurate to the paper's actual content
 - No hyperbole or misleading claims
 - Each platform post must be genuinely different (not just shortened versions)
-- Links must use the actual Vercel deployment URL
+- Links must use the actual Vercel deployment URL read from `.vercel-url` — NEVER construct from project name
 - Facebook posts must pass a "no markdown" check — grep for `**`, `*`, `#`, `- ` and remove any found

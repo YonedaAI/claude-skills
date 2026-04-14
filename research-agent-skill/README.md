@@ -61,12 +61,12 @@ Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Ve
 
 ## Review Pipeline
 
-Every paper goes through two mandatory review cycles:
+Every paper goes through two mandatory, externally-enforced review cycles:
 
-1. **Gemini 3.1 Pro peer review** via CLI — adversarial review (not self-review), saved to `reviews/`
-2. **Codex formatting check** — LaTeX compilation, references, styling issues
+1. **Gemini 3.1 Pro peer review** via CLI — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the `gemini` CLI command and write the output to disk. Gate checks verify the review file exists and has substantive content (>100 bytes).
+2. **Codex formatting check** — LaTeX compilation, references, styling issues. Each worker MUST invoke the `codex:rescue` skill (not self-check formatting).
 
-Both cycles include fix iterations (max 2 per cycle). The website also gets a Codex review before Vercel deployment.
+Both cycles include fix iterations (max 2 per cycle). After all workers complete, the orchestrator runs a post-worker verification pass that checks every `reviews/$TOPIC-review.md` file exists with real content. Missing or stub reviews trigger a re-run. The website also gets a Codex review before Vercel deployment.
 
 ## Output Structure
 

@@ -312,6 +312,82 @@ module.exports = {
 }
 ```
 
+## OG Meta Tags — Social Sharing Requirements
+
+Social platforms (Facebook, LinkedIn, Twitter/X, Bluesky) require ABSOLUTE URLs for OG images. Next.js generates relative paths by default, which break previews.
+
+### Required: `metadataBase` in Root Layout
+
+```typescript
+// app/layout.tsx — MUST set metadataBase
+// Use Vercel's automatic env var — no hardcoded URLs or file reads
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  openGraph: {
+    type: 'website',
+    siteName: 'Project Title',
+    images: [{ url: '/images/og/og-image.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/images/og/og-image.png'],
+  },
+};
+```
+
+### Required: Per-Paper OG + Twitter in `generateMetadata()`
+
+```typescript
+// app/papers/[slug]/page.tsx
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const paper = papers.find(p => p.slug === params.slug);
+  return {
+    title: paper.title,
+    description: paper.abstract,
+    openGraph: {
+      title: paper.title,
+      description: paper.abstract,
+      type: 'article',
+      url: `/papers/${paper.slug}`,
+      images: [{ url: `/images/og/${paper.slug}.png`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: paper.title,
+      description: paper.abstract,
+      images: [`/images/og/${paper.slug}.png`],
+    },
+  };
+}
+```
+
+### Common OG Failures
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Facebook shows no image | Relative OG URL | Add `metadataBase` in root layout |
+| Twitter shows plain link | Missing `twitter:card` tag | Add `twitter: { card: 'summary_large_image' }` |
+| Homepage has no preview | No OG in page.tsx | Add explicit OG metadata to landing page |
+| Paper previews wrong image | Missing per-page `generateMetadata` | Add OG image per paper page |
+| OG image 404 | Image not copied to public/ | Verify `public/images/og/*.png` before build |
+
+### Post-Build Verification
+
+After `npm run build`, check the static HTML output:
+
+```bash
+for html in out/papers/*/index.html; do
+  echo "=== $(basename $(dirname $html)) ==="
+  grep -o 'property="og:image"[^>]*' "$html" | head -1
+  grep -o 'name="twitter:card"[^>]*' "$html" | head -1
+done
+# Every page must have og:image with absolute URL (https://...)
+```
+
 ## papers.json Manifest
 
 Generate this file during the pipeline to list all papers:

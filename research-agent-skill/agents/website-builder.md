@@ -62,6 +62,31 @@ cd website && npm install isomorphic-dompurify
 - Dark theme body styling
 - Header with project title and navigation
 - Footer with author info and links
+- **CRITICAL — `metadataBase`**: Set `metadataBase` in the root layout metadata so Next.js resolves relative OG image paths to absolute URLs. Use Vercel's automatic environment variable — do NOT hardcode URLs or read from files:
+
+```typescript
+// app/layout.tsx — use Vercel's auto env var, no hardcoding
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: { default: 'Project Title', template: '%s | Project Title' },
+  description: 'Project description',
+  openGraph: {
+    type: 'website',
+    siteName: 'Project Title',
+    images: [{ url: '/images/og/og-image.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/images/og/og-image.png'],
+  },
+};
+```
+
+`VERCEL_PROJECT_PRODUCTION_URL` is set automatically by Vercel at build time — no hardcoding needed. Do NOT read from `.vercel-url` file or hardcode URLs. Without `metadataBase`, Facebook/LinkedIn get relative paths like `/images/og/...` which don't resolve. This is the #1 cause of broken OG previews.
 
 **app/page.tsx** (Landing Page):
 - Hero section: project title, perspective description, paper count
@@ -69,6 +94,7 @@ cd website && npm install isomorphic-dompurify
 - Each card: cover image, title, part number, abstract excerpt (first 150 chars)
 - Card links: "Read" -> /papers/[slug], "PDF" -> /pdf/[slug].pdf
 - Subtle hover animations, gradient accents
+- OG image in page metadata (homepage needs its own, not just inherited from layout)
 
 **app/papers/[slug]/page.tsx** (Paper Pages):
 - Full paper content from pandoc HTML, sanitized with DOMPurify before rendering
@@ -77,7 +103,7 @@ cd website && npm install isomorphic-dompurify
 - **Active section highlighting in TOC** (see CRITICAL scroll tracking below)
 - PDF download button (fixed position)
 - Previous/Next paper navigation
-- Per-page OG meta via `generateMetadata()`
+- Per-page OG meta via `generateMetadata()` — see CRITICAL OG section below
 
 **CRITICAL — KaTeX Math: Server-Side Pre-Rendering (NOT client-side)**
 
@@ -203,6 +229,64 @@ Key points:
 - Set initial active state on mount (not just on scroll)
 
 **app/globals.css**: Generated topic-driven CSS variables, Tailwind base, custom component styles for paper content (theorem blocks, code blocks, math display, tables) — all using the theme palette
+
+**CRITICAL — OG Meta Tags for Social Sharing:**
+
+OG images MUST work on Facebook, LinkedIn, Twitter/X, and Bluesky. These platforms require ABSOLUTE URLs. Common failures and their fixes:
+
+1. **`metadataBase` in root layout** — MUST be set (see layout.tsx section above). Without it, Next.js generates relative OG URLs like `/images/og/paper.png` which social platforms cannot resolve.
+
+2. **Homepage OG image** — The landing page (`app/page.tsx`) MUST export its own metadata with an OG image. It does NOT automatically inherit the layout's OG image for sharing. Add:
+
+```typescript
+// app/page.tsx
+export const metadata: Metadata = {
+  openGraph: {
+    images: [{ url: '/images/og/og-image.png', width: 1200, height: 630 }],
+  },
+};
+```
+
+3. **Paper pages `generateMetadata()`** — Each paper page MUST include ALL of these:
+
+```typescript
+// app/papers/[slug]/page.tsx
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const paper = papers.find(p => p.slug === params.slug);
+  return {
+    title: paper.title,
+    description: paper.abstract,
+    openGraph: {
+      title: paper.title,
+      description: paper.abstract,
+      type: 'article',
+      url: `/papers/${paper.slug}`,
+      images: [{ url: `/images/og/${paper.slug}.png`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: paper.title,
+      description: paper.abstract,
+      images: [`/images/og/${paper.slug}.png`],
+    },
+  };
+}
+```
+
+4. **Twitter card** — MUST include `twitter.card: 'summary_large_image'` and `twitter.images`. Without this, Twitter/X shows a plain link with no preview image.
+
+5. **OG image files** — Verify all OG images exist in `public/images/og/` (or `public/og/`) BEFORE building. Missing images = broken previews.
+
+**GATE CHECK after build — Verify OG tags in static HTML output:**
+
+    for html in out/papers/*/index.html; do
+      echo "=== $(basename $(dirname $html)) ==="
+      grep -o 'property="og:image"[^>]*' "$html" | head -1
+      grep -o 'name="twitter:card"[^>]*' "$html" | head -1
+      grep -o 'property="og:url"[^>]*' "$html" | head -1
+    done
+
+Every paper page must have `og:image`, `twitter:card`, and `og:url` tags with absolute URLs (starting with `https://`).
 
 ### 3. Data Layer
 
