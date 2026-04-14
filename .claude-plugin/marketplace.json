@@ -13,7 +13,7 @@
       "description": "Multi-agent research pipeline with Gemini peer review, Codex formatting, Haskell verification, Vercel deployment, social posts, and Slack notifications.",
       "source": "./research-agent-skill",
       "category": "development",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "YonedaAI Research Collective",
         "email": "matthew@yonedaai.com"
