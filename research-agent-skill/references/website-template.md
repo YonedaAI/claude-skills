@@ -199,6 +199,25 @@ Add these to the KaTeX `macros` config:
 - `\diag` → `\operatorname{diag}`
 - `\adj` → `\operatorname{adj}`
 
+### Sidebar TOC — Active Section Tracking
+
+DO NOT use IntersectionObserver for TOC active state. It fails when headings scroll past the viewport.
+
+Use a scroll listener that finds the last heading above viewport top:
+- On scroll: iterate all heading elements, find the last one with `offsetTop <= window.scrollY + 100`
+- Set that as the active TOC item
+- Use `{ passive: true }` on the scroll listener for performance
+- Set initial state on component mount
+
+Style active item with theme accent color and left border:
+```css
+.toc-active {
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  background: var(--accent-glow);
+}
+```
+
 ### Post-Conversion Verification
 
 After pandoc, scan for un-wrapped math:

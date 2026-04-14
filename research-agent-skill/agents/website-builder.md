@@ -74,6 +74,7 @@ cd website && npm install isomorphic-dompurify
 - Full paper content from pandoc HTML, sanitized with DOMPurify before rendering
 - KaTeX math rendering (see CRITICAL math setup below)
 - Sticky sidebar TOC generated from h2/h3 headings (collapse on mobile via hamburger)
+- **Active section highlighting in TOC** (see CRITICAL scroll tracking below)
 - PDF download button (fixed position)
 - Previous/Next paper navigation
 - Per-page OG meta via `generateMetadata()`
@@ -111,6 +112,68 @@ The paper page component does NOT need to be a client component. Math is pre-ren
 - `\mathbb{}` — works with KaTeX CSS loaded
 - `$$...$$` display math — needs blank lines before/after in HTML
 - `SU(2)_L` in prose — wrap in `\(...\)` during pandoc post-processing
+
+**CRITICAL — Sidebar TOC Active Section Tracking:**
+
+DO NOT use IntersectionObserver with a narrow rootMargin for TOC highlighting. It fails because once a heading scrolls past the viewport, nothing intersects and the highlight goes stale.
+
+Instead, use a scroll event listener that finds the last heading above the viewport top:
+
+```typescript
+// TableOfContents.tsx (client component)
+'use client';
+import { useState, useEffect } from 'react';
+
+export function TableOfContents({ headings }: { headings: { id: string; text: string; level: number }[] }) {
+  const [activeId, setActiveId] = useState('');
+
+  useEffect(() => {
+    const onScroll = () => {
+      const scrollY = window.scrollY + 100; // offset for header
+      let current = '';
+      for (const { id } of headings) {
+        const el = document.getElementById(id);
+        if (el && el.offsetTop <= scrollY) {
+          current = id;
+        }
+      }
+      setActiveId(current);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // set initial state
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [headings]);
+
+  return (
+    <nav className="toc">
+      {headings.map(({ id, text, level }) => (
+        <a
+          key={id}
+          href={`#${id}`}
+          className={`toc-item ${level === 3 ? 'toc-sub' : ''} ${activeId === id ? 'toc-active' : ''}`}
+        >
+          {text}
+        </a>
+      ))}
+    </nav>
+  );
+}
+```
+
+Style the active state with the theme accent:
+```css
+.toc-active {
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  background: var(--accent-glow);
+}
+```
+
+Key points:
+- Iterate headings top-to-bottom, keep the last one with `offsetTop <= scrollY`
+- Add ~100px offset to account for sticky header
+- Use `{ passive: true }` for scroll performance
+- Set initial active state on mount (not just on scroll)
 
 **app/globals.css**: Generated topic-driven CSS variables, Tailwind base, custom component styles for paper content (theorem blocks, code blocks, math display, tables) — all using the theme palette
 

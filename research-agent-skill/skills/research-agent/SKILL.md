@@ -533,7 +533,9 @@ Review the Next.js research website at $PROJECT_PATH/$PROJECT/website/ for:
 - Design errors (contrast ratios, font sizes, spacing inconsistencies)
 - Mobile responsiveness (touch targets, viewport issues, text readability)
 - Broken links or missing assets
-- KaTeX math rendering setup
+- KaTeX math rendering: check that math is pre-rendered server-side (katex.renderToString), NOT client-side (useEffect). Check for raw LaTeX in the static HTML output.
+- Sidebar TOC: verify active section tracking uses scroll position (last heading above viewport), NOT IntersectionObserver with narrow rootMargin. Active item must highlight correctly when scrolling through long sections.
+- Scroll behavior: check all scroll-dependent features work in static export (no JS on first load for SSG)
 - Performance issues (large bundles, unoptimized images)
 List all issues with file paths and line numbers.
 ```
