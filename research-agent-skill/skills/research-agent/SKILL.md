@@ -15,15 +15,33 @@ The command passes these parsed values:
 - `$PERSPECTIVE` — framing perspective for all papers
 - `$PROJECT` — project directory name
 - `$PROJECT_PATH` — absolute path to create project (default: cwd)
-- `$GITHUB_ORG` — GitHub organization (default: `YonedaAI`)
+- `$GITHUB_ORG` — GitHub organization (from `$RESEARCH_GITHUB_ORG` env var or default `YonedaAI`)
 - `$SLACK_CHANNEL` — Slack channel ID (from `$RESEARCH_SLACK_CHANNEL` env var or default `C0AK269AVSA`)
 - `$SKIP_HASKELL`, `$SKIP_WEBSITE`, `$SKIP_SOCIAL` — boolean flags
+
+## Environment Variables
+
+Read these at the start of execution. All have sensible defaults — none are required.
+
+| Env Var | Default | Purpose |
+|---------|---------|---------|
+| `RESEARCH_AUTHOR_NAME` | `Matthew Long` | Paper author name |
+| `RESEARCH_AUTHOR_EMAIL` | `matthew@yonedaai.com` | Author contact email |
+| `RESEARCH_AUTHOR_URL` | `https://yonedaai.com` | Author website |
+| `RESEARCH_COLLABORATION` | `The YonedaAI Collaboration` | Collaboration line in author block |
+| `RESEARCH_INSTITUTION` | `YonedaAI Research Collective` | Institution line in author block |
+| `RESEARCH_LOCATION` | `Chicago, IL` | Author location |
+| `RESEARCH_GITHUB_ORG` | `YonedaAI` | GitHub organization for repo creation |
+| `RESEARCH_SLACK_CHANNEL` | `C0AK269AVSA` | Slack channel ID for notifications |
+| `RESEARCH_GEMINI_MODEL` | `gemini-3.1-pro` | Gemini model for peer review |
+| `RESEARCH_WORKER_MODEL` | `opus` | Model for research-worker and synthesis agents |
+| `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
 
 ## CRITICAL — Mandatory Steps (never skip these)
 
 Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they are not optional:
 
-1. **Gemini peer review** — Every paper (workers + synthesis) MUST be reviewed by `gemini -m gemini-3.1-pro`. The review MUST be saved to `reviews/`. Skipping this is a pipeline failure.
+1. **Gemini peer review** — Every paper (workers + synthesis) MUST be reviewed by `gemini -m $RESEARCH_GEMINI_MODEL`. The review MUST be saved to `reviews/`. Skipping this is a pipeline failure.
 2. **Codex formatting check** — Every paper MUST be checked by `codex:rescue` after review fixes. Skipping this is a pipeline failure.
 3. **Codex website review** — The website MUST be reviewed by `codex:rescue` BEFORE Vercel deployment (Step 6d). Skipping this is a pipeline failure.
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
@@ -35,12 +53,14 @@ If you present a plan to the user, the plan MUST explicitly list all 5 of the ab
 
 ## Author Block (used in all papers)
 
+Constructed from env vars at runtime:
+
 ```
-Matthew Long
-The YonedaAI Collaboration
-YonedaAI Research Collective
-Chicago, IL
-matthew@yonedaai.com · https://yonedaai.com
+$RESEARCH_AUTHOR_NAME
+$RESEARCH_COLLABORATION
+$RESEARCH_INSTITUTION
+$RESEARCH_LOCATION
+$RESEARCH_AUTHOR_EMAIL · $RESEARCH_AUTHOR_URL
 ```
 
 ---
@@ -108,10 +128,10 @@ Use standard article class, amsmath, amssymb, tikz-cd, hyperref, cleveref.
 Add custom theorem environments (Theorem, Proposition, Lemma, Definition, Remark).
 
 Author block:
-Matthew Long
-The YonedaAI Collaboration, YonedaAI Research Collective
-Chicago, IL
-matthew@yonedaai.com · https://yonedaai.com
+$RESEARCH_AUTHOR_NAME
+$RESEARCH_COLLABORATION, $RESEARCH_INSTITUTION
+$RESEARCH_LOCATION
+$RESEARCH_AUTHOR_EMAIL · $RESEARCH_AUTHOR_URL
 
 If the topic involves mathematics, also create Haskell modules in `src/$TOPIC/`:
 - Main.hs with runnable demonstrations
@@ -121,7 +141,7 @@ If the topic involves mathematics, also create Haskell modules in `src/$TOPIC/`:
 ### Stage 2 — Gemini Peer Review
 Run peer review via Gemini CLI. Execute this Bash command:
 
-    cat papers/latex/$TOPIC.tex | gemini -m gemini-3.1-pro -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback with specific line-level suggestions organized by severity (critical, major, minor)."
+    cat papers/latex/$TOPIC.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback with specific line-level suggestions organized by severity (critical, major, minor)."
 
 Save the review output to `reviews/$TOPIC-review.md`.
 
@@ -210,7 +230,7 @@ Topics: $TOPICS (all of them)
    - Shows how topics compose hierarchically
    - Minimum 20 pages, arxiv-style
 
-4. Run Gemini peer review (same as workers — gemini -m gemini-3.1-pro)
+4. Run Gemini peer review (same as workers — gemini -m $RESEARCH_GEMINI_MODEL)
 5. Fix review issues (max 2 iterations)
 6. Run Codex LaTeX check via codex:rescue skill, fix issues
 7. Add GrokRxiv sidebar
@@ -312,56 +332,110 @@ Spawn `website-builder` agent (foreground):
 
 **Agent prompt:**
 ```
-You are building a modern, mobile-ready research website.
+You are building a modern, mobile-ready research website with a UNIQUE theme derived from the research topics.
 
 Project root: $PROJECT_PATH/$PROJECT
 Papers: [list all topics + synthesis with titles]
+Perspective: $PERSPECTIVE
+Topics: $TOPICS
 GitHub org: $GITHUB_ORG
 Project name: $PROJECT
 
-1. Create a Next.js 14 static site in website/. Run this Bash command:
+## STEP 0 — Design a Topic-Driven Theme
 
-       cd $PROJECT_PATH/$PROJECT && npx create-next-app@14 website --typescript --tailwind --app --no-src-dir --no-import-alias --use-npm
+DO NOT use generic colors. Design a unique color palette and visual identity based on the research topics and perspective. Follow this process:
 
-2. Build the site with these pages:
+1. Analyze the research domain:
+   - Physics/quantum: deep blues, ultraviolet, particle-trail glows
+   - Mathematics/category theory: geometric purples, abstract gradients
+   - Biology/neuroscience: organic greens, neural network patterns
+   - Computer science/AI: electric cyan, circuit-board motifs
+   - Chemistry: molecular oranges, reaction-energy yellows
+   - Cosmology/gravity: dark space blacks, nebula gradients, stellar golds
+   - Economics/social: warm earth tones, network graphs
+   - Philosophy/epistemology: deep magentas, contemplative dark palettes
 
-   **app/layout.tsx**: Root layout with:
-   - Inter font from next/font
-   - Dark theme (bg: #0a0a0f, surface: #12121a, accent: #6c5ce7, text: #e4e4ef)
-   - Global OG meta tags
-   - Navigation header
+2. Generate a CSS variables block with these required tokens:
+   --bg:            (dark background — always dark for readability)
+   --surface:       (slightly lighter than bg, for cards/panels)
+   --surface-hover: (hover state for surface elements)
+   --accent:        (primary accent — derived from topic domain)
+   --accent-hover:  (lighter variant of accent)
+   --accent-glow:   (accent at ~15% opacity, for subtle glows)
+   --accent-secondary: (complementary accent for variety)
+   --text:          (light text on dark bg — high contrast)
+   --text-muted:    (secondary text)
+   --text-dim:      (tertiary/disabled text)
+   --border:        (subtle borders)
+   --code-bg:       (code block background, darker than bg)
+   --success:       (status color)
+   --warning:       (status color)
 
-   **app/page.tsx**: Landing page with:
-   - Project title and description
-   - Paper cards grid (responsive: 1 col mobile, 2 col tablet, 3 col desktop)
-   - Each card shows: cover image, title, part number, abstract excerpt
-   - Links: "Read" (HTML), "PDF" (download), "Code" (GitHub src link)
-   - Modern design: subtle gradients, card hover effects, clean typography
+3. Design topic-specific visual touches:
+   - Hero section gradient or pattern that evokes the research domain
+   - Card hover effects that match the topic energy (e.g. glow for quantum, grow for biology)
+   - A subtle background texture or SVG pattern relevant to the field
+   - Typography choices that match the tone (e.g. serif for classical physics, sans for CS)
 
-   **app/papers/[slug]/page.tsx**: Individual paper pages with:
-   - Full paper content from pandoc HTML (sanitized with DOMPurify via isomorphic-dompurify)
-   - KaTeX CSS + JS from CDN for math rendering
-   - Sidebar table of contents (sticky, collapsible on mobile)
-   - PDF download button
-   - Navigation to prev/next paper
-   - Per-page OG meta tags via generateMetadata()
+4. Write the complete theme to `website/theme.json` so it can be referenced:
+   {
+     "name": "theme-name-based-on-topics",
+     "domain": "detected research domain",
+     "colors": { "bg": "#...", "accent": "#...", ... },
+     "font": "Inter|Crimson Pro|JetBrains Mono|...",
+     "heroGradient": "linear-gradient(...)",
+     "cardEffect": "glow|grow|slide|fade",
+     "bgPattern": "description of SVG/CSS pattern"
+   }
 
-   **app/globals.css**: Dark theme with CSS variables matching paper-template.html
+## STEP 1 — Create Next.js Project
 
-   **public/**: Copy over papers/pdf/*.pdf, images/*.png, docs/papers/*.html content
+Run this Bash command:
 
-3. Create papers.json manifest listing all papers with metadata
+    cd $PROJECT_PATH/$PROJECT && npx create-next-app@14 website --typescript --tailwind --app --no-src-dir --no-import-alias --use-npm
 
-4. Install DOMPurify: `npm install isomorphic-dompurify`
+## STEP 2 — Build Pages
 
-5. Configure next.config.js with: output: 'export', images: { unoptimized: true }
+**app/layout.tsx**: Root layout with:
+- Topic-appropriate font from next/font/google (chosen in theme)
+- Dark theme using the generated CSS variables
+- Global OG meta tags
+- Navigation header with project title
 
-The site must be:
-- Fully responsive and readable on mobile
+**app/page.tsx**: Landing page with:
+- Hero section with topic-driven gradient/pattern and project title
+- Brief perspective description
+- Paper cards grid (responsive: 1 col mobile, 2 col tablet, 3 col desktop)
+- Each card: cover image, title, part number, abstract excerpt (first 150 chars)
+- Card hover effects matching the topic theme
+- Links: "Read" (HTML page), "PDF" (download), "Code" (GitHub src link)
+
+**app/papers/[slug]/page.tsx**: Individual paper pages with:
+- Full paper content from pandoc HTML (sanitized with DOMPurify via isomorphic-dompurify)
+- KaTeX CSS + JS from CDN for math rendering
+- Sticky sidebar TOC generated from h2/h3 headings (collapse to hamburger on mobile)
+- PDF download button (fixed position)
+- Previous/Next paper navigation
+- Per-page OG meta tags via generateMetadata()
+- Themed code blocks and theorem environments matching the domain
+
+**app/globals.css**: Generated theme CSS variables + Tailwind base + custom paper content styles (theorem blocks, code blocks, math display, tables) using the topic-driven palette
+
+**public/**: Copy papers/pdf/*.pdf, images/*.png, docs/papers/*.html content
+
+## STEP 3 — Data and Config
+
+- Create papers.json manifest listing all papers with metadata (slug, title, part, abstract, pages, hasCode, category)
+- Install DOMPurify: `npm install isomorphic-dompurify`
+- Configure next.config.js with: output: 'export', images: { unoptimized: true }
+
+## Quality Requirements
+- Fully responsive and readable on mobile (no horizontal scroll)
 - Papers must render math correctly via KaTeX
-- Dark theme throughout
-- Fast loading (static export)
-- Professional research aesthetic (not generic AI look)
+- Dark theme throughout — NEVER use white/light backgrounds
+- Fast loading (static export, no client-side data fetching)
+- Professional research aesthetic — the design must feel UNIQUE to this research domain, not like a generic template
+- Each project's website should be visually distinguishable from other projects
 ```
 
 ### Step 6c — OG Image Generation
@@ -375,14 +449,17 @@ Generate Open Graph images (1200x630) for each research paper.
 Project root: $PROJECT_PATH/$PROJECT
 Papers: [list topics]
 
+First, read the theme from `$PROJECT_PATH/$PROJECT/website/theme.json` to get the background color.
+
 For each paper with a cover image in images/$TOPIC.png, run this Bash command:
 
     mkdir -p $PROJECT_PATH/$PROJECT/website/public/og
     sips -z 630 1200 "$PROJECT_PATH/$PROJECT/images/$TOPIC.png" --out "$PROJECT_PATH/$PROJECT/website/public/og/$TOPIC.png" 2>/dev/null
 
-If sips produces poor results (aspect ratio), create a composite instead:
+If sips produces poor results (aspect ratio), create a composite using the theme background color (read --bg from theme.json):
 
-    convert -size 1200x630 xc:'#0a0a0f' "$PROJECT_PATH/$PROJECT/images/$TOPIC.png" -gravity center -resize 500x600 -composite "$PROJECT_PATH/$PROJECT/website/public/og/$TOPIC.png"
+    BG_COLOR=$(python3 -c "import json; print(json.load(open('$PROJECT_PATH/$PROJECT/website/theme.json'))['colors']['bg'])")
+    convert -size 1200x630 "xc:$BG_COLOR" "$PROJECT_PATH/$PROJECT/images/$TOPIC.png" -gravity center -resize 500x600 -composite "$PROJECT_PATH/$PROJECT/website/public/og/$TOPIC.png"
 
 Also create a default og-image.png for the landing page using the first paper's cover.
 ```

@@ -79,4 +79,4 @@ Hook → Problem → Insight → Why it matters → Link → Hashtags (own line 
 2. **No hyperbole**: Don't overstate findings or implications
 3. **Differentiation**: Each platform post must be genuinely different, not just shorter/longer versions
 4. **Links**: Always include the Vercel deployment URL for the specific paper page
-5. **Attribution**: Credit the collaboration (YonedaAI Research Collective)
+5. **Attribution**: Credit the collaboration (`$RESEARCH_COLLABORATION` / `$RESEARCH_INSTITUTION`)

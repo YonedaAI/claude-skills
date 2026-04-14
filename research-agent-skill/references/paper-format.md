@@ -53,12 +53,15 @@ All papers use arxiv-style LaTeX format with minimum 20 pages.
 8. **References** — bibliography
 
 ### Author Block
+
+Constructed from env vars (see SKILL.md Environment Variables table):
+
 ```latex
-\author{Matthew Long \\
-\textit{The YonedaAI Collaboration} \\
-\textit{YonedaAI Research Collective} \\
-Chicago, IL \\
-\texttt{matthew@yonedaai.com} $\cdot$ \url{https://yonedaai.com}}
+\author{$RESEARCH_AUTHOR_NAME \\
+\textit{$RESEARCH_COLLABORATION} \\
+\textit{$RESEARCH_INSTITUTION} \\
+$RESEARCH_LOCATION \\
+\texttt{$RESEARCH_AUTHOR_EMAIL} $\cdot$ \url{$RESEARCH_AUTHOR_URL}}
 ```
 
 ## GrokRxiv DOI Sidebar

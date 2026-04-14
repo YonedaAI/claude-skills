@@ -1,6 +1,6 @@
 # Haskell Code Patterns
 
-Conventions derived from the YonedaAI Research Collective codebase.
+Conventions for Haskell formal verification code. Author details read from env vars at runtime.
 
 ## Module Structure
 
@@ -8,9 +8,9 @@ Conventions derived from the YonedaAI Research Collective codebase.
 {-|
 Module      : TopicName.ModuleName
 Description : Brief description of the module
-Copyright   : (c) Matthew Long, 2026
+Copyright   : (c) $RESEARCH_AUTHOR_NAME, [current year]
 License     : MIT
-Maintainer  : matthew@yonedaai.com
+Maintainer  : $RESEARCH_AUTHOR_EMAIL
 Stability   : experimental
 
 Detailed description of the module's purpose and its relationship

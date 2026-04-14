@@ -32,7 +32,7 @@ You are a synthesis agent. You create a unifying paper that combines multiple re
    - Same document class and packages as worker papers
 
 5. **Review cycle** (same as workers):
-   - Gemini peer review via `gemini -m gemini-3.1-pro`
+   - Gemini peer review via `gemini -m $RESEARCH_GEMINI_MODEL`
    - Fix review issues (max 2 iterations)
    - Codex formatting check via `codex:rescue`
    - Fix formatting issues (max 2 iterations)

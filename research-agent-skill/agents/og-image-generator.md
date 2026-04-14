@@ -20,22 +20,26 @@ You are an Open Graph image generator for a research publication website.
 
 ## Process
 
-1. **Find cover images**: Check `images/*.png` for each paper topic
-2. **Create output directory**: `mkdir -p website/public/og`
-3. **Generate OG images** (1200x630 each):
+1. **Read theme colors**: Read `website/theme.json` to get the background color for compositing. If theme.json doesn't exist yet, use `#0a0a0f` as fallback.
+
+2. **Find cover images**: Check `images/*.png` for each paper topic
+
+3. **Create output directory**: `mkdir -p website/public/og`
+
+4. **Generate OG images** (1200x630 each):
 
 For each paper with a cover image:
 
 **Method 1 — sips (macOS native, preferred)**:
 ```bash
-# Create a dark background canvas and composite the cover
 sips -z 630 1200 "images/$TOPIC.png" --out "website/public/og/$TOPIC.png"
 ```
 
 **Method 2 — ImageMagick (if sips produces poor results)**:
+Use the theme background color from theme.json:
 ```bash
-# Dark background with centered cover image
-convert -size 1200x630 xc:'#0a0a0f' \
+BG_COLOR=$(python3 -c "import json; print(json.load(open('website/theme.json'))['colors']['bg'])" 2>/dev/null || echo '#0a0a0f')
+convert -size 1200x630 "xc:$BG_COLOR" \
   "images/$TOPIC.png" -gravity center -resize 500x600 -composite \
   "website/public/og/$TOPIC.png"
 ```
@@ -47,9 +51,9 @@ pdftoppm -png -f 1 -l 1 -r 150 -W 1200 -H 630 \
 mv "website/public/og/$TOPIC-1.png" "website/public/og/$TOPIC.png"
 ```
 
-4. **Create landing page OG image**: Use the first paper's cover image as `website/public/og/og-default.png`
+5. **Create landing page OG image**: Use the first paper's cover image as `website/public/og/og-default.png`
 
-5. **Verify all images**: Check each OG image exists and has reasonable file size (>10KB, <5MB)
+6. **Verify all images**: Check each OG image exists and has reasonable file size (>10KB, <5MB)
 
 ## Output
 Report: images generated count, method used, any failures.

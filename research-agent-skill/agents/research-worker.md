@@ -45,7 +45,7 @@ You are a research paper worker. You write rigorous, arxiv-style academic papers
 
 ### Stage 3 — Gemini Peer Review
 ```bash
-cat papers/latex/$TOPIC.tex | gemini -m gemini-3.1-pro -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references."
+cat papers/latex/$TOPIC.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references."
 ```
 Save output to `reviews/$TOPIC-review.md`
 
