@@ -548,7 +548,18 @@ Run these Bash commands:
     npm run build
     npx vercel --prod --yes 2>&1 | tee /tmp/vercel-deploy.log
 
-Extract the deployment URL from the output. Store as `$VERCEL_URL`.
+**MANDATORY — Extract and validate the Vercel URL correctly:**
+
+The Vercel CLI output contains the production URL. Extract it with:
+
+    grep -oE 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -1
+
+Store as `$VERCEL_URL`. Before using in Slack or social posts, VERIFY:
+1. The URL ends in `.vercel.app` (plain ASCII, no punycode like `.xn--`)
+2. The URL is a valid HTTPS URL with no trailing special characters
+3. Test with: `curl -sI "$VERCEL_URL" | head -1` — must return `HTTP/2 200` or `HTTP/2 308`
+
+If the URL contains punycode (`.xn--`), the extraction grabbed extra characters. Re-extract using the grep command above. NEVER send a punycode URL to Slack — it will be unclickable.
 
 **MANDATORY — Website checkpoint before proceeding:**
 - [ ] Step 6a: docs/papers/*.html exist for all papers
@@ -557,7 +568,9 @@ Extract the deployment URL from the output. Store as `$VERCEL_URL`.
 - [ ] Step 6d: Codex website review completed, issues fixed
 - [ ] Step 6e: Vercel deployment succeeded, $VERCEL_URL captured
 
-**MANDATORY — Slack notification with Vercel URL** using `mcp__claude_ai_Slack__slack_send_message` to `$SLACK_CHANNEL`:
+**MANDATORY — Slack notification with Vercel URL** using `mcp__claude_ai_Slack__slack_send_message` to `$SLACK_CHANNEL`.
+Before sending, VERIFY the URL: it must end in `.vercel.app` with no punycode (`.xn--`). If malformed, re-extract from `/tmp/vercel-deploy.log` using: `grep -oE 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -1`
+
 ```
 Website deployed
 URL: $VERCEL_URL
@@ -622,16 +635,21 @@ Each post file should have YAML frontmatter with fields: platform, topic, title,
 
 ## Phase 8 — Finalize
 
-### Step 8a — Generate README.md
+### Step 8a — Generate README.md (MANDATORY — do NOT skip)
 
-Write `$PROJECT_PATH/$PROJECT/README.md` with:
+Write `$PROJECT_PATH/$PROJECT/README.md` BEFORE committing or creating the GitHub repo. The README MUST exist before Step 8b.
+
+Contents:
 - Project title and description
 - Architecture diagram (ASCII)
-- Paper table (title, pages, category, links)
+- Paper table (title, pages, category, links to Vercel pages and PDFs)
 - Tech stack (LaTeX, Haskell, Next.js, Vercel)
 - How to build locally
-- Author info
+- Author info (from env vars)
 - Links to Vercel site and individual papers
+- Link to GitHub repo
+
+Verify it exists: `test -f $PROJECT_PATH/$PROJECT/README.md && echo "OK" || echo "MISSING"`
 
 ### Step 8b — Git Commit and Push
 
@@ -668,9 +686,7 @@ Stage and commit ALL files:
     git commit -m "Initial research pipeline output: [topic count] papers + synthesis
     
     Papers: [list topics]
-    Includes: LaTeX sources, PDFs, Haskell proofs, HTML conversion, Next.js website, social posts
-    
-    Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
+    Includes: LaTeX sources, PDFs, Haskell proofs, HTML conversion, Next.js website, social posts"
 
 **After committing, run `git status` again. If ANY untracked or unstaged files remain, stage and commit them in a follow-up commit. Zero files should be left behind.**
 
