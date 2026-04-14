@@ -172,11 +172,28 @@ export function renderMath(html: string): string {
 
 ### Render Flow
 
-Correct order in the SERVER component (no client component needed):
-1. Read pandoc HTML from file
+1. Read pandoc HTML from file (server component or build step)
 2. Call `renderMath(html)` — converts LaTeX delimiters to KaTeX HTML spans
-3. Sanitize with DOMPurify (ADD_TAGS: `['span', 'math', 'semantics', 'annotation']`, ADD_ATTR: `['xmlns', 'encoding', 'class', 'style', 'aria-hidden']`)
-4. Pass to template — math is static HTML, no JS needed
+3. Pass the HTML string to a client component that inserts it via ref callback
+
+**CRITICAL: Do NOT use `dangerouslySetInnerHTML`.** React's hydration mangles KaTeX HTML (attribute mismatches, reordered spans), breaking math rendering and TOC scroll. Instead:
+
+```tsx
+// PaperContent.tsx — client component
+'use client';
+import { useCallback } from 'react';
+
+export function PaperContent({ html }: { html: string }) {
+  const contentRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) node.innerHTML = html;
+  }, [html]);
+  return <div ref={contentRef} className="paper-content" />;
+}
+```
+
+This bypasses React reconciliation entirely. The HTML is our own pandoc + KaTeX output — DOMPurify is not needed for our own static build data.
+
+TOC scroll spy must use `document.getElementById()` to find headings (they're in the real DOM but not React's virtual DOM).
 
 Include KaTeX CSS in layout: `import 'katex/dist/katex.min.css'`
 

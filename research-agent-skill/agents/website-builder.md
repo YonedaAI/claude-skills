@@ -105,7 +105,34 @@ Instead, pre-render math at BUILD TIME using `katex.renderToString()`.
 
 4. Include KaTeX CSS for fonts: `import 'katex/dist/katex.min.css'` in layout
 
-The paper page component does NOT need to be a client component. Math is pre-rendered HTML. No `useEffect`, no `useRef`, no hydration issues.
+**CRITICAL — HTML Insertion Must Bypass React Hydration:**
+
+DO NOT use `dangerouslySetInnerHTML` for paper content. React's hydration will mangle the KaTeX-rendered HTML (attribute mismatches, reordered spans), causing:
+- Hydration errors in console
+- Broken math rendering after hydration
+- TOC scroll spy failing to find heading elements
+
+Instead, use a ref callback that sets `innerHTML` directly, bypassing React reconciliation:
+
+```tsx
+// PaperContent.tsx — client component
+'use client';
+import { useCallback } from 'react';
+
+export function PaperContent({ html }: { html: string }) {
+  const contentRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      node.innerHTML = html;  // bypasses React hydration entirely
+    }
+  }, [html]);
+
+  return <div ref={contentRef} className="paper-content" />;
+}
+```
+
+This is safe because the HTML is our own pandoc output pre-rendered with KaTeX at build time — it is not user-supplied content. DOMPurify is not needed for our own static data.
+
+The TOC scroll spy should use `document.getElementById()` to find headings — they exist in the real DOM after the ref callback sets innerHTML, but are NOT in React's virtual DOM.
 
 **Common KaTeX failures to handle with macros:**
 - `\slashed{D}` — map to `\not{D}`

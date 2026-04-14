@@ -536,6 +536,7 @@ Review the Next.js research website at $PROJECT_PATH/$PROJECT/website/ for:
 - KaTeX math rendering: check that math is pre-rendered server-side (katex.renderToString), NOT client-side (useEffect). Check for raw LaTeX in the static HTML output.
 - Sidebar TOC: verify active section tracking uses scroll position (last heading above viewport), NOT IntersectionObserver with narrow rootMargin. Active item must highlight correctly when scrolling through long sections.
 - Scroll behavior: check all scroll-dependent features work in static export (no JS on first load for SSG)
+- React hydration: verify paper content uses ref callback with node.innerHTML to avoid KaTeX HTML hydration mismatches. Do NOT use React's built-in HTML insertion — it mangles KaTeX spans.
 - Performance issues (large bundles, unoptimized images)
 List all issues with file paths and line numbers.
 ```
