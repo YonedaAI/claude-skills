@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "local-skills",
+  "version": "1.0.0",
+  "description": "Local Claude Code skills and plugins",
+  "owner": {
+    "name": "YonedaAI Research Collective",
+    "email": "matthew@yonedaai.com"
+  },
+  "plugins": [
+    {
+      "name": "research-agent",
+      "description": "Multi-agent research pipeline with Gemini peer review, Codex formatting, Haskell verification, Vercel deployment, social posts, and Slack notifications.",
+      "source": "./research-agent-skill",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "YonedaAI Research Collective",
+        "email": "matthew@yonedaai.com"
+      }
+    }
+  ]
+}

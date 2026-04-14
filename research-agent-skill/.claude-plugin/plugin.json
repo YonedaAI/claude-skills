@@ -1,0 +1,11 @@
+{
+  "name": "research-agent",
+  "version": "0.1.0",
+  "description": "Multi-agent research pipeline: parallel research workers with Gemini peer review, Codex formatting, Haskell verification, Vercel website deployment, social posts, and Slack notifications.",
+  "author": {
+    "name": "YonedaAI Research Collective",
+    "url": "https://github.com/YonedaAI"
+  },
+  "license": "MIT",
+  "keywords": ["research", "multi-agent", "latex", "peer-review", "vercel", "haskell"]
+}
