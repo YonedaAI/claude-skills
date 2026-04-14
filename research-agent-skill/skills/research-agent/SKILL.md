@@ -350,7 +350,17 @@ Convert all papers (including synthesis) to HTML. Run this Bash command:
       pandoc "$tex" --to html5 --mathjax --toc --toc-depth=3 --number-sections --no-highlight --wrap=none -o "docs/papers/$name.html"
     done
 
-NOTE: Use `--mathjax` (not `--katex`) for pandoc conversion. This wraps math in `\(...\)` and `\[...\]` delimiters that KaTeX auto-render can process client-side. The `--katex` flag inlines KaTeX HTML which often breaks complex expressions.
+NOTE: Use `--mathjax` (not `--katex`) for pandoc conversion. This wraps math in `\(...\)` and `\[...\]` delimiters that KaTeX renderToString() can process at build time. The `--katex` flag inlines KaTeX HTML which often breaks complex expressions.
+
+**MANDATORY — Extract custom LaTeX macros before math rendering:**
+Papers define custom commands via `\newcommand` in their preambles (e.g. `\newcommand{\Hilb}{\mathcal{H}}`). These MUST be extracted and passed to KaTeX as macros, otherwise they render as red error text.
+
+1. Parse all `papers/latex/*.tex` for `\newcommand{\name}[args]{definition}` lines
+2. Convert each to a KaTeX macro entry: `'\\name': 'definition'`
+3. Merge with base macros (`\slashed`, `\bra`, `\ket`, `\braket`, `\Hom`, `\Tr`, etc.)
+4. Pass the full macro map to `katex.renderToString()` in `lib/render-math.ts`
+
+This is critical — research papers routinely define 50-70 custom commands. Missing ANY of them causes visible red errors on the website.
 
 If `scripts/latex2html.py` exists, prefer using it for better post-processing:
 

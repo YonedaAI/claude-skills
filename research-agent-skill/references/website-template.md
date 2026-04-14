@@ -99,14 +99,57 @@ Instead, create `lib/render-math.ts` that uses `katex.renderToString()` at build
 ```typescript
 import katex from 'katex';
 
-const MACROS: Record<string, string> = {
+// IMPORTANT: Custom macros must be extracted from each paper's \newcommand
+// definitions in the LaTeX preamble. The render-math utility should:
+// 1. Read all .tex files in papers/latex/
+// 2. Parse \newcommand{\name}[args]{definition} lines
+// 3. Convert to KaTeX macro format: '\\name': 'expansion'
+// 4. Merge with the base macros below
+
+const BASE_MACROS: Record<string, string> = {
+  // LaTeX commands not natively in KaTeX
   '\\slashed': '\\not{#1}',
+  '\\roman': '\\mathrm{#1}',
+  // Common operator names
   '\\tr': '\\operatorname{tr}',
   '\\Tr': '\\operatorname{Tr}',
   '\\diag': '\\operatorname{diag}',
   '\\adj': '\\operatorname{adj}',
   '\\sgn': '\\operatorname{sgn}',
+  '\\Hom': '\\operatorname{Hom}',
+  '\\Mor': '\\operatorname{Mor}',
+  '\\Ob': '\\operatorname{Ob}',
+  '\\id': '\\operatorname{id}',
+  '\\im': '\\operatorname{im}',
+  '\\coker': '\\operatorname{coker}',
+  '\\rank': '\\operatorname{rank}',
+  '\\Lan': '\\operatorname{Lan}',
+  '\\Ran': '\\operatorname{Ran}',
+  '\\Nat': '\\operatorname{Nat}',
+  '\\PSh': '\\operatorname{PSh}',
+  // Dirac notation
+  '\\bra': '\\langle#1|',
+  '\\ket': '|#1\\rangle',
+  '\\braket': '\\langle#1|#2\\rangle',
+  '\\ketbra': '|#1\\rangle\\langle#2|',
+  '\\expect': '\\langle#1\\rangle',
 };
+
+// Auto-extract custom macros from LaTeX preambles
+function extractMacros(texFiles: string[]): Record<string, string> {
+  const macros = { ...BASE_MACROS };
+  for (const tex of texFiles) {
+    const matches = tex.matchAll(
+      /\\newcommand\{\\([a-zA-Z]+)\}(?:\[(\d+)\])?\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g
+    );
+    for (const m of matches) {
+      const [, name, argCount, body] = m;
+      // Convert LaTeX arg format (#1, #2) to KaTeX format
+      macros['\\' + name] = body;
+    }
+  }
+  return macros;
+}
 
 export function renderMath(html: string): string {
   // Display math: \[...\] and $$...$$

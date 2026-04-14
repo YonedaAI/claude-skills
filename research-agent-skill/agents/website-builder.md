@@ -92,7 +92,9 @@ Instead, pre-render math at BUILD TIME using `katex.renderToString()`.
 2. Create `lib/render-math.ts` — a build-time utility:
    - Find all math delimiters in the HTML string: `\[...\]`, `$$...$$` (display), `\(...\)`, `$...$` (inline)
    - Replace each with `katex.renderToString(tex, { displayMode, throwOnError: false, trust: true, macros })`
-   - Macros map: `\slashed` → `\not{#1}`, `\tr` → `\operatorname{tr}`, `\Tr`, `\diag`, `\adj`, `\sgn`
+   - MUST auto-extract custom macros from `\newcommand` definitions in all `papers/latex/*.tex` preambles
+   - Merge with base macros: `\slashed` → `\not{#1}`, `\bra`/`\ket`/`\braket` → Dirac notation, `\Hom`/`\Tr`/`\Lan`/`\Ran` → operatorname
+   - Papers typically define 50-70 custom commands — missing any causes red error text on the site
 
 3. In the SERVER component (page.tsx), apply the render pipeline:
    - Read pandoc HTML from file
