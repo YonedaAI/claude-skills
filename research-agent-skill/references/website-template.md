@@ -86,27 +86,56 @@ Use `--mathjax` flag (NOT `--katex`) when converting with pandoc:
 
 Why NOT `--katex`? The `--katex` flag inlines KaTeX HTML at conversion time, which breaks on complex expressions. Using `--mathjax` keeps math as LaTeX source in `\(...\)` and `\[...\]` delimiters that KaTeX renders at runtime.
 
-### Next.js KaTeX Setup
+### Next.js KaTeX Setup — Server-Side Pre-Rendering
 
-Install as npm package (NOT CDN — doesn't work with Next.js hydration):
+Install as npm package:
 
     npm install katex
 
-Create a client component that:
-1. Imports `katex/dist/katex.min.css` for font/styling
-2. Imports `katex/dist/contrib/auto-render` for delimiter processing
-3. Calls `renderMathInElement()` in `useEffect` on the paper content container ref
-4. Configures delimiters: `$$...$$`, `\[...\]` (display), `\(...\)`, `$...$` (inline)
-5. Sets `throwOnError: false`, `trust: true`
-6. Adds macros for unsupported commands (see table below)
+DO NOT use client-side rendering (`useEffect` + `renderMathInElement`). This fails on static export because there is no JS on first page load — users see raw LaTeX.
+
+Instead, create `lib/render-math.ts` that uses `katex.renderToString()` at build time:
+
+```typescript
+import katex from 'katex';
+
+const MACROS: Record<string, string> = {
+  '\\slashed': '\\not{#1}',
+  '\\tr': '\\operatorname{tr}',
+  '\\Tr': '\\operatorname{Tr}',
+  '\\diag': '\\operatorname{diag}',
+  '\\adj': '\\operatorname{adj}',
+  '\\sgn': '\\operatorname{sgn}',
+};
+
+export function renderMath(html: string): string {
+  // Display math: \[...\] and $$...$$
+  html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, tex) =>
+    katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false, trust: true, macros: MACROS })
+  );
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) =>
+    katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false, trust: true, macros: MACROS })
+  );
+  // Inline math: \(...\) and $...$
+  html = html.replace(/\\\(([\s\S]*?)\\\)/g, (_, tex) =>
+    katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false, trust: true, macros: MACROS })
+  );
+  html = html.replace(/(?<![\\$])\$(?!\$)([^\n]*?)(?<![\\$])\$/g, (_, tex) =>
+    katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false, trust: true, macros: MACROS })
+  );
+  return html;
+}
+```
 
 ### Render Flow
 
-Correct order: sanitize HTML with DOMPurify → insert into DOM → run KaTeX auto-render on the container ref. KaTeX must run AFTER the HTML is in the DOM.
+Correct order in the SERVER component (no client component needed):
+1. Read pandoc HTML from file
+2. Call `renderMath(html)` — converts LaTeX delimiters to KaTeX HTML spans
+3. Sanitize with DOMPurify (ADD_TAGS: `['span', 'math', 'semantics', 'annotation']`, ADD_ATTR: `['xmlns', 'encoding', 'class', 'style', 'aria-hidden']`)
+4. Pass to template — math is static HTML, no JS needed
 
-DOMPurify config must allow math-related tags:
-- ADD_TAGS: `['math', 'semantics', 'annotation', 'span']`
-- ADD_ATTR: `['xmlns', 'encoding', 'class', 'style']`
+Include KaTeX CSS in layout: `import 'katex/dist/katex.min.css'`
 
 ### Common Math Failures
 

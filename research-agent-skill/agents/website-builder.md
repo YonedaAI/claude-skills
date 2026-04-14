@@ -78,27 +78,37 @@ cd website && npm install isomorphic-dompurify
 - Previous/Next paper navigation
 - Per-page OG meta via `generateMetadata()`
 
-**CRITICAL — KaTeX Math Rendering Setup:**
+**CRITICAL — KaTeX Math: Server-Side Pre-Rendering (NOT client-side)**
 
-Math will NOT render unless set up correctly. Pandoc outputs math in `\(...\)` and `\[...\]` delimiters. KaTeX auto-render must process these client-side AFTER the sanitized HTML is inserted into the DOM.
+DO NOT use client-side `useEffect` + `renderMathInElement()`. This causes:
+- Flash of raw LaTeX before hydration
+- Static export pages show unrendered math (no JS on first load)
+- Crawlers/OG scrapers see raw LaTeX
 
-1. Install KaTeX: `npm install katex`
+Instead, pre-render math at BUILD TIME using `katex.renderToString()`.
 
-2. Create a client component `KatexRenderer.tsx` that:
-   - Imports `katex/dist/katex.min.css`
-   - Imports `katex/dist/contrib/auto-render`
-   - Calls `renderMathInElement()` in a `useEffect` on the paper content container
-   - Configures delimiters: `$$...$$`, `\[...\]` (display), `\(...\)`, `$...$` (inline)
-   - Sets `throwOnError: false` and `trust: true`
-   - Adds macros for unsupported commands: `\slashed` -> `\not{#1}`, `\tr` -> `\operatorname{tr}`
+1. Install: `npm install katex`
 
-3. Render flow: sanitize HTML with DOMPurify first, insert into DOM, THEN run KaTeX auto-render on the container ref.
+2. Create `lib/render-math.ts` — a build-time utility:
+   - Find all math delimiters in the HTML string: `\[...\]`, `$$...$$` (display), `\(...\)`, `$...$` (inline)
+   - Replace each with `katex.renderToString(tex, { displayMode, throwOnError: false, trust: true, macros })`
+   - Macros map: `\slashed` → `\not{#1}`, `\tr` → `\operatorname{tr}`, `\Tr`, `\diag`, `\adj`, `\sgn`
+
+3. In the SERVER component (page.tsx), apply the render pipeline:
+   - Read pandoc HTML from file
+   - Call `renderMath(html)` to convert LaTeX → KaTeX HTML spans
+   - Sanitize with DOMPurify
+   - Pass to template — math is already rendered as static HTML
+
+4. Include KaTeX CSS for fonts: `import 'katex/dist/katex.min.css'` in layout
+
+The paper page component does NOT need to be a client component. Math is pre-rendered HTML. No `useEffect`, no `useRef`, no hydration issues.
 
 **Common KaTeX failures to handle with macros:**
-- `\slashed{D}` — not natively supported, map to `\not{D}`
-- `\mathbb{}` — works but needs KaTeX fonts loaded (they are via the CSS import)
-- Display math `$$...$$` — must have blank lines before/after in HTML
-- Inline subscripts in prose like `SU(2)_L` — must be wrapped in `\(...\)` during pandoc conversion
+- `\slashed{D}` — map to `\not{D}`
+- `\mathbb{}` — works with KaTeX CSS loaded
+- `$$...$$` display math — needs blank lines before/after in HTML
+- `SU(2)_L` in prose — wrap in `\(...\)` during pandoc post-processing
 
 **app/globals.css**: Generated topic-driven CSS variables, Tailwind base, custom component styles for paper content (theorem blocks, code blocks, math display, tables) — all using the theme palette
 

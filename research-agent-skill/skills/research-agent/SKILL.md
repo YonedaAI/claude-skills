@@ -459,8 +459,8 @@ Run this Bash command:
 - Links: "Read" (HTML page), "PDF" (download), "Code" (GitHub src link)
 
 **app/papers/[slug]/page.tsx**: Individual paper pages with:
-- Full paper content from pandoc HTML (sanitized with DOMPurify via isomorphic-dompurify)
-- KaTeX CSS + JS from CDN for math rendering
+- Full paper content from pandoc HTML, math pre-rendered server-side via katex.renderToString() (NOT client-side useEffect), then sanitized with DOMPurify
+- KaTeX CSS imported for font rendering (npm package, not CDN)
 - Sticky sidebar TOC generated from h2/h3 headings (collapse to hamburger on mobile)
 - PDF download button (fixed position)
 - Previous/Next paper navigation
