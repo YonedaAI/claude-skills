@@ -347,12 +347,32 @@ Convert all papers (including synthesis) to HTML. Run this Bash command:
     cd $PROJECT_PATH/$PROJECT
     for tex in papers/latex/*.tex; do
       name=$(basename "$tex" .tex)
-      pandoc "$tex" --to html5 --katex --toc --toc-depth=3 --number-sections --no-highlight --wrap=none -o "docs/papers/$name.html"
+      pandoc "$tex" --to html5 --mathjax --toc --toc-depth=3 --number-sections --no-highlight --wrap=none -o "docs/papers/$name.html"
     done
+
+NOTE: Use `--mathjax` (not `--katex`) for pandoc conversion. This wraps math in `\(...\)` and `\[...\]` delimiters that KaTeX auto-render can process client-side. The `--katex` flag inlines KaTeX HTML which often breaks complex expressions.
 
 If `scripts/latex2html.py` exists, prefer using it for better post-processing:
 
     python3 scripts/latex2html.py --latex-dir papers/latex --html-dir docs/papers --template scripts/paper-template.html --project-title "$PROJECT" --papers "topic:Title:Part N" ...
+
+**MANDATORY — Math verification after conversion:**
+For each converted HTML file, check for broken math by searching for raw LaTeX that wasn't wrapped in math delimiters:
+
+    cd $PROJECT_PATH/$PROJECT/docs/papers
+    for html in *.html; do
+      echo "=== $html ==="
+      # Find raw LaTeX commands outside of math delimiters
+      grep -oP '(?<![\\(\[])\\(textbf|textit|mathcal|frac|sqrt|sum|prod|int|partial|nabla|infty|alpha|beta|gamma|delta|epsilon|lambda|mu|sigma|omega|psi|phi|Psi|Phi|mathbb|mathrm|operatorname|slashed|bar|hat|tilde|vec)\b' "$html" | head -20
+    done
+
+Fix any raw LaTeX found outside math delimiters by wrapping in `\(...\)` for inline or `\[...\]` for display math. Common issues to fix:
+- `$$...$$` not converted: replace with `\[...\]`
+- Inline `$...$` not converted: replace with `\(...\)`
+- `\textbf{}` outside math: convert to `<strong>`
+- `\textit{}` outside math: convert to `<em>`
+- `\slashed{D}` — KaTeX doesn't support `\slashed`: replace with `\not{D}` or `{D\!\!\!/}`
+- Subscripts/superscripts in prose (e.g. `SU(2)_L`): wrap in `\(...\)`
 
 ### Step 6b — Next.js Website
 

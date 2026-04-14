@@ -78,40 +78,62 @@ Written by website-builder agent to `website/theme.json`:
 
 ## KaTeX Integration
 
-Include in paper pages only (not landing page):
+### Pandoc Conversion (CRITICAL)
 
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
-  onload="renderMathInElement(document.body, {
-    delimiters: [
-      {left: '$$', right: '$$', display: true},
-      {left: '$', right: '$', display: false},
-      {left: '\\[', right: '\\]', display: true},
-      {left: '\\(', right: '\\)', display: false}
-    ]
-  })"></script>
-```
+Use `--mathjax` flag (NOT `--katex`) when converting with pandoc:
 
-In Next.js, add these via `<Script>` component in the paper page layout.
+    pandoc paper.tex --to html5 --mathjax --toc --number-sections -o paper.html
 
-## Paper Content Rendering
+Why NOT `--katex`? The `--katex` flag inlines KaTeX HTML at conversion time, which breaks on complex expressions. Using `--mathjax` keeps math as LaTeX source in `\(...\)` and `\[...\]` delimiters that KaTeX renders at runtime.
 
-Papers are converted from LaTeX to HTML via pandoc. The HTML body is then sanitized and rendered:
+### Next.js KaTeX Setup
 
-```tsx
-import DOMPurify from 'isomorphic-dompurify';
+Install as npm package (NOT CDN — doesn't work with Next.js hydration):
 
-// Read the pandoc-generated HTML content
-const rawHtml = fs.readFileSync(`docs/papers/${slug}.html`, 'utf-8');
+    npm install katex
 
-// Sanitize before rendering
-const cleanHtml = DOMPurify.sanitize(rawHtml, {
-  ADD_TAGS: ['math', 'semantics', 'annotation'],
-  ADD_ATTR: ['xmlns', 'encoding'],
-});
-```
+Create a client component that:
+1. Imports `katex/dist/katex.min.css` for font/styling
+2. Imports `katex/dist/contrib/auto-render` for delimiter processing
+3. Calls `renderMathInElement()` in `useEffect` on the paper content container ref
+4. Configures delimiters: `$$...$$`, `\[...\]` (display), `\(...\)`, `$...$` (inline)
+5. Sets `throwOnError: false`, `trust: true`
+6. Adds macros for unsupported commands (see table below)
+
+### Render Flow
+
+Correct order: sanitize HTML with DOMPurify → insert into DOM → run KaTeX auto-render on the container ref. KaTeX must run AFTER the HTML is in the DOM.
+
+DOMPurify config must allow math-related tags:
+- ADD_TAGS: `['math', 'semantics', 'annotation', 'span']`
+- ADD_ATTR: `['xmlns', 'encoding', 'class', 'style']`
+
+### Common Math Failures
+
+| Problem | Symptom | Fix |
+|---------|---------|-----|
+| Raw `$$...$$` showing | Math not rendered | KaTeX auto-render not running — check component mount |
+| `\slashed{D}` error | Red error text | Add macro: `'\\slashed': '\\not{#1}'` |
+| `SU(2)_L` in prose | Subscript not rendered | Wrap in `\(SU(2)_L\)` during post-processing |
+| `\mathbb{R}` blank | Missing glyph | KaTeX CSS not loaded |
+| Aligned environments break | Misaligned rows | Use `\\\\` not `\\` in HTML |
+
+### Macros for Unsupported Commands
+
+Add these to the KaTeX `macros` config:
+- `\slashed` → `\not{#1}`
+- `\tr` → `\operatorname{tr}`
+- `\Tr` → `\operatorname{Tr}`
+- `\diag` → `\operatorname{diag}`
+- `\adj` → `\operatorname{adj}`
+
+### Post-Conversion Verification
+
+After pandoc, scan for un-wrapped math:
+
+    grep -P '(?<![\\\(\[])\\(mathcal|frac|sqrt|sum|int|partial|slashed|bar|hat)\{' docs/papers/*.html
+
+Fix by wrapping in `\(...\)` for inline or `\[...\]` for display.
 
 ## Paper Content Styles
 

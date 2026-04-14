@@ -71,12 +71,34 @@ cd website && npm install isomorphic-dompurify
 - Subtle hover animations, gradient accents
 
 **app/papers/[slug]/page.tsx** (Paper Pages):
-- Full paper content from pandoc HTML, sanitized with DOMPurify
-- KaTeX CSS from CDN: `https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css`
+- Full paper content from pandoc HTML, sanitized with DOMPurify before rendering
+- KaTeX math rendering (see CRITICAL math setup below)
 - Sticky sidebar TOC generated from h2/h3 headings (collapse on mobile via hamburger)
 - PDF download button (fixed position)
 - Previous/Next paper navigation
 - Per-page OG meta via `generateMetadata()`
+
+**CRITICAL — KaTeX Math Rendering Setup:**
+
+Math will NOT render unless set up correctly. Pandoc outputs math in `\(...\)` and `\[...\]` delimiters. KaTeX auto-render must process these client-side AFTER the sanitized HTML is inserted into the DOM.
+
+1. Install KaTeX: `npm install katex`
+
+2. Create a client component `KatexRenderer.tsx` that:
+   - Imports `katex/dist/katex.min.css`
+   - Imports `katex/dist/contrib/auto-render`
+   - Calls `renderMathInElement()` in a `useEffect` on the paper content container
+   - Configures delimiters: `$$...$$`, `\[...\]` (display), `\(...\)`, `$...$` (inline)
+   - Sets `throwOnError: false` and `trust: true`
+   - Adds macros for unsupported commands: `\slashed` -> `\not{#1}`, `\tr` -> `\operatorname{tr}`
+
+3. Render flow: sanitize HTML with DOMPurify first, insert into DOM, THEN run KaTeX auto-render on the container ref.
+
+**Common KaTeX failures to handle with macros:**
+- `\slashed{D}` — not natively supported, map to `\not{D}`
+- `\mathbb{}` — works but needs KaTeX fonts loaded (they are via the CSS import)
+- Display math `$$...$$` — must have blank lines before/after in HTML
+- Inline subscripts in prose like `SU(2)_L` — must be wrapped in `\(...\)` during pandoc conversion
 
 **app/globals.css**: Generated topic-driven CSS variables, Tailwind base, custom component styles for paper content (theorem blocks, code blocks, math display, tables) — all using the theme palette
 
