@@ -268,41 +268,69 @@ For each topic that has code in `src/$TOPIC/`, spawn `haskell-verifier` agents i
 
 **Agent prompt per topic:**
 ```
-You are a Haskell verification agent.
+You are a Haskell formal verification agent using a layered proof strategy.
 
 Project root: $PROJECT_PATH/$PROJECT
 Topic: $TOPIC
 Source directory: src/$TOPIC/
 
+PHASE 1 — Structure and Compilation:
 1. Read all .hs files in src/$TOPIC/
-2. Ensure Main.hs exists with a main function that demonstrates key abstractions
-3. Compile with this Bash command:
+2. Ensure these modules exist: Main.hs, Core.hs (or domain-named), Properties.hs, Proofs.hs
+3. If Properties.hs or Proofs.hs don't exist, CREATE them:
+   - Properties.hs: QuickCheck properties for each major theorem in the paper
+   - Proofs.hs: Equational reasoning proofs with executable checks
+4. Compile with strict flags:
 
-       cd $PROJECT_PATH/$PROJECT && ghc -o src/$TOPIC/test src/$TOPIC/Main.hs src/$TOPIC/*.hs -isrc/$TOPIC 2>&1
+       cd $PROJECT_PATH/$PROJECT && ghc -Wall -Wextra -Werror -o src/$TOPIC/test src/$TOPIC/Main.hs src/$TOPIC/*.hs -isrc/$TOPIC -package QuickCheck 2>&1
 
-4. If compilation fails, fix errors and recompile (max 3 iterations)
-5. Run the compiled binary with this Bash command:
+5. Fix compilation errors (max 3 iterations)
 
-       src/$TOPIC/test
-6. Verify output is meaningful (not empty, no runtime errors)
-7. Invoke codex:rescue skill: "Review Haskell code in src/$TOPIC/ for: type safety issues, missing type signatures, incomplete pattern matches, code quality, idiomatic Haskell style. List all issues."
-8. Fix Codex-identified issues (max 2 iterations)
-9. Recompile and verify after fixes
+PHASE 2 — QuickCheck Property Testing:
+6. Ensure Properties.hs has at least one property per major theorem/proposition
+7. Compile and run properties:
 
-Clean up compiled binaries: `rm -f src/$TOPIC/test src/$TOPIC/*.o src/$TOPIC/*.hi`
-Report: compilation status, test output summary, issues fixed.
+       cd $PROJECT_PATH/$PROJECT && ghc -Wall -o src/$TOPIC/props src/$TOPIC/Properties.hs -isrc/$TOPIC -package QuickCheck 2>&1 && src/$TOPIC/props
+
+8. All properties MUST pass. If any fail, fix the implementation and rerun.
+
+PHASE 3 — Equational Reasoning:
+9. Ensure Proofs.hs contains equational proofs in structured format
+10. Each proof must cite which paper theorem it verifies
+11. Run proof checks via Main.hs
+
+PHASE 4 — Liquid Haskell (optional):
+12. Check if Liquid Haskell is available: `which liquid`
+13. If available, add refinement type annotations and run `liquid src/$TOPIC/Core.hs`
+14. If not available, skip and note in report
+
+PHASE 5 — Codex Review:
+15. Invoke codex:rescue skill: "Review Haskell in src/$TOPIC/ for: type safety, QuickCheck property correctness, equational proof soundness, missing coverage, idiomatic style."
+16. Fix issues (max 2 iterations)
+
+PHASE 6 — Final Verification:
+17. Recompile everything, rerun all properties and proofs
+18. Main.hs must exit 0 (all verifications pass)
+19. Clean up: `rm -f src/$TOPIC/test src/$TOPIC/props src/$TOPIC/*.o src/$TOPIC/*.hi`
+
+Report: compilation status, QuickCheck (N properties, all passed/failures), equational proofs (N checked/passed), Liquid Haskell (verified/skipped), Codex issues fixed.
 ```
 
 **MANDATORY — Haskell checkpoint before proceeding:**
-- [ ] All src/$TOPIC/ directories compile with GHC without errors
-- [ ] All Main.hs binaries produce non-empty, error-free output
-- [ ] Codex review run on each module, issues fixed
+- [ ] All src/$TOPIC/ directories compile with `-Wall -Wextra -Werror` and zero warnings
+- [ ] Properties.hs exists with QuickCheck properties for major theorems — all pass
+- [ ] Proofs.hs exists with equational reasoning proofs — all executable checks pass
+- [ ] Main.hs exits 0 (all verifications pass)
+- [ ] Codex review completed, issues fixed
 
 **MANDATORY — Slack notification on Haskell verification completion** using `mcp__claude_ai_Slack__slack_send_message` to `$SLACK_CHANNEL`:
 ```
 Haskell verification completed
 Topics verified: [list]
 Modules compiled: [count]
+QuickCheck: [N] properties tested, [N] passed
+Equational proofs: [N] checked, [N] passed
+Liquid Haskell: [verified/skipped]
 Codex issues fixed: [count]
 ```
 
