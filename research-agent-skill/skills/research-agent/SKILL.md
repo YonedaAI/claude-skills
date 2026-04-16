@@ -68,6 +68,7 @@ Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they 
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
 5. **Review-fix loops** — After each Gemini review, you MUST fix critical/major issues and re-submit until the verdict is publishable (ACCEPT/MINOR REVISIONS) or 4 rounds are exhausted. After Codex review, max 2 fix iterations.
 6. **Bypass permissions on every Agent spawn** — This pipeline runs unattended. Every `Agent` tool call MUST set `mode: "bypassPermissions"` so sub-agents never pause for permission prompts on Bash/Write/Edit/WebFetch. A single prompt stalls the whole run. See "Agent Spawning Rules" below.
+7. **Every URL in every Slack message MUST be wrapped in angle brackets** — Slack's mrkdwn auto-linker is greedy: a bare URL followed by `*bold*`, punctuation, or any non-whitespace character will pull that adjacent text into the link (observed: `https://github.com/org/repo *Social` rendered as a link to `…/repo *Social`, simultaneously breaking bold formatting). The only safe form is `<https://example.com>` (plain) or `<https://example.com|label>` (with display text). NEVER paste a raw URL into a Slack message. Applies to every `mcp__claude_ai_Slack__slack_send_message` call — worker completion, synthesis, Haskell, website deploy, final summary, and any error notifications.
 
 If you present a plan to the user, the plan MUST explicitly list all 5 of the above as separate line items. Do not collapse them into a phase header.
 
@@ -670,11 +671,13 @@ Use ONLY the value read from that file. Do NOT type a URL from memory or constru
 
 ```
 Website deployed
-URL: [value from .vercel-url file]
+URL: <[value from .vercel-url file]>
 Papers: [count] HTML pages
 OG images: [count]
 Codex review: [issues found] → [issues fixed]
 ```
+
+Substitute the literal URL inside the angle brackets — e.g. `URL: <https://ferrous-bridge.vercel.app>`. Angle brackets are REQUIRED; without them Slack's auto-linker will consume adjacent characters from the next line/marker into the URL.
 
 ---
 
@@ -846,12 +849,14 @@ Project: $PROJECT
 Topics: [comma-separated list]
 Papers: [count] research papers + 1 synthesis
 Haskell: [compiled/skipped] ([module count] modules)
-Website: [value from .vercel-url file]
-GitHub: https://github.com/$GITHUB_ORG/$PROJECT
+Website: <[value from .vercel-url file]>
+GitHub: <https://github.com/$GITHUB_ORG/$PROJECT>
 Social Posts: [count] posts across 4 platforms
 
 All papers peer-reviewed by Gemini 3.1 Pro and format-checked by Codex.
 ```
+
+CRITICAL: every URL above is wrapped in `<...>`. Substitute the literal URL *inside* the angle brackets — `Website: <https://ferrous-bridge.vercel.app>`, `GitHub: <https://github.com/YonedaAI/ferrous-bridge>`. NEVER emit a bare URL like `GitHub: https://github.com/YonedaAI/ferrous-bridge` — Slack's auto-linker will pull `*Social` from the next bold marker into the href, producing a broken link AND broken bold text (this has been observed in production output).
 
 ---
 
