@@ -46,6 +46,7 @@ Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they 
 3. **Codex website review** — The website MUST be reviewed by `codex:rescue` BEFORE Vercel deployment (Step 6d). Skipping this is a pipeline failure.
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
 5. **Review-fix loops** — After each Gemini review, you MUST fix critical/major issues and re-submit until the verdict is publishable (ACCEPT/MINOR REVISIONS) or 4 rounds are exhausted. After Codex review, max 2 fix iterations.
+6. **Bypass permissions on every Agent spawn** — This pipeline runs unattended. Every `Agent` tool call MUST set `mode: "bypassPermissions"` so sub-agents never pause for permission prompts on Bash/Write/Edit/WebFetch. A single prompt stalls the whole run. See "Agent Spawning Rules" below.
 
 If you present a plan to the user, the plan MUST explicitly list all 5 of the above as separate line items. Do not collapse them into a phase header.
 
@@ -808,3 +809,4 @@ All papers peer-reviewed by Gemini 3.1 Pro and format-checked by Codex.
 - **Parallel agents** (independent work): research-workers (all topics), haskell-verifiers (all topics), og-image-generator
 - **Background agents** (can overlap with other work): social-posts (if Vercel URL is already known)
 - Always send parallel agents in a **single message with multiple Agent tool calls**
+- **MANDATORY — bypass permissions on every spawn**: Every Agent tool call in this pipeline MUST include `mode: "bypassPermissions"`. This is equivalent to `--dangerously-skip-permissions` and is required so sub-agents run their Bash/Write/Edit/WebFetch calls without stopping to prompt the user. The pipeline is long-running and unattended — a single prompt stalls the whole run. No exceptions: applies to knowledge-base-builder, research-worker (all topics), synthesis-agent, haskell-verifier, website-builder, og-image-generator, social-posts, and any codex:rescue / ad-hoc agent spawns.
