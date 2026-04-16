@@ -569,10 +569,20 @@ Fix all Codex-identified issues. Maximum 2 fix iterations. Log the number of iss
 
 ### Step 6e — Vercel Deployment
 
+**CRITICAL — Name the Vercel project after `$PROJECT`, not `website`.** The local directory is `website/`, but the Vercel project (and the `<slug>.vercel.app` URL) MUST be derived from `$PROJECT`. Without explicit naming, Vercel uses the current directory name (`website`), producing URLs like `website-abc123.vercel.app` and a fresh project on every run.
+
 Run these Bash commands:
 
     cd $PROJECT_PATH/$PROJECT/website
+
+    # Derive a Vercel-safe project name from $PROJECT (lowercase, [a-z0-9-], <=100 chars)
+    VERCEL_PROJECT=$(echo "$PROJECT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+|-+$//g' | cut -c1-100)
+
     npm run build
+
+    # Create the Vercel project (idempotent) and link this dir to it BEFORE deploying
+    npx vercel project add "$VERCEL_PROJECT" 2>/dev/null || true
+    npx vercel link --yes --project "$VERCEL_PROJECT" 2>&1 | tee /tmp/vercel-link.log
     npx vercel --prod --yes 2>&1 | tee /tmp/vercel-deploy.log
 
 **MANDATORY — Extract, validate, and persist the Vercel URL:**
@@ -596,8 +606,11 @@ The URL must:
 1. End in `.vercel.app` (plain ASCII, no punycode like `.xn--`)
 2. Be a valid HTTPS URL with no trailing special characters
 3. Return `HTTP/2 200` or `HTTP/2 308` from curl
+4. **Contain `$VERCEL_PROJECT` as a prefix** — i.e. `https://<project>[-<hash>].vercel.app`, never `https://website-*.vercel.app`. Run:
 
-If validation fails, re-extract from the deploy log. NEVER send a punycode URL to Slack.
+        echo "$URL" | grep -qE "^https://${VERCEL_PROJECT}(-[a-z0-9]+)?\.vercel\.app$" && echo "PASS: project-named URL" || { echo "FAIL: URL '$URL' does not match project '$VERCEL_PROJECT' — Vercel link step likely failed. Re-run vercel project add + link before retrying deploy."; exit 1; }
+
+If validation fails, re-extract from the deploy log. NEVER send a punycode URL to Slack, and NEVER accept a `website-*.vercel.app` URL — that means the project was misnamed.
 
 **CRITICAL: From this point forward, ALWAYS read the URL from `.vercel-url` file — NEVER construct it from the project name, NEVER type it from memory.** Every Slack message or social post that includes the Vercel URL must first run: `cat $PROJECT_PATH/$PROJECT/.vercel-url`
 
@@ -606,7 +619,7 @@ If validation fails, re-extract from the deploy log. NEVER send a punycode URL t
 - [ ] Step 6b: website/ builds without errors (`npm run build` succeeds)
 - [ ] Step 6c: website/public/og/*.png exist for all papers
 - [ ] Step 6d: Codex website review completed, issues fixed
-- [ ] Step 6e: Vercel deployment succeeded, $VERCEL_URL captured
+- [ ] Step 6e: Vercel deployment succeeded, $VERCEL_URL captured, and URL subdomain matches `$VERCEL_PROJECT` (never `website-*`)
 
 **MANDATORY — Slack notification with Vercel URL** using `mcp__claude_ai_Slack__slack_send_message` to `$SLACK_CHANNEL`.
 

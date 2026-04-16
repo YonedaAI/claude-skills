@@ -324,10 +324,34 @@ module.exports = {
 - Copy OG images to `public/og/`
 
 ### 6. Build and Deploy
+
+**CRITICAL — Vercel project name MUST match `$PROJECT`**, not the local `website/` directory name. Without this, the deployed URL becomes `website-<hash>.vercel.app` instead of `<project>.vercel.app`, and every run creates a new unrelated project.
+
+The spawning agent/skill passes `$PROJECT` (the project slug) into this agent's prompt. Use it as the Vercel project name. Sanitize to lowercase, replace any non-`[a-z0-9-]` with `-`, and cap at 100 chars (Vercel's limit):
+
 ```bash
+# Derive a Vercel-safe project name from $PROJECT
+VERCEL_PROJECT=$(echo "$PROJECT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+|-+$//g' | cut -c1-100)
+
 npm run build
+
+# Ensure the Vercel project exists with the desired name (idempotent — no-op if it already exists)
+npx vercel project add "$VERCEL_PROJECT" 2>/dev/null || true
+
+# Link this directory to that project (creates .vercel/project.json)
+npx vercel link --yes --project "$VERCEL_PROJECT" 2>&1
+
+# Deploy to production under the linked project
 npx vercel --prod --yes 2>&1
 ```
+
+**Verification gate** — after deploy, confirm the URL contains `$VERCEL_PROJECT`, not `website`:
+```bash
+DEPLOY_URL=$(cat .vercel-url 2>/dev/null || npx vercel ls --prod 2>&1 | grep -oE 'https://[^ ]+\.vercel\.app' | head -1)
+echo "$DEPLOY_URL" | grep -q "$VERCEL_PROJECT" || { echo "ERROR: deployment URL '$DEPLOY_URL' does not match project name '$VERCEL_PROJECT'"; exit 1; }
+```
+
+Do NOT run `vercel --prod --yes` before the `vercel link` step — it will create a project named after the current directory (`website`) instead of `$PROJECT`.
 
 ## Quality Requirements
 - Lighthouse score targets: Performance >90, Accessibility >95
