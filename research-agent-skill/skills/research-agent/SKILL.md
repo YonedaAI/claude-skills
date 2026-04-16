@@ -36,6 +36,24 @@ Read these at the start of execution. All have sensible defaults — none are re
 | `RESEARCH_GEMINI_MODEL` | `gemini-3.1-pro` | Gemini model for peer review |
 | `RESEARCH_WORKER_MODEL` | `opus` | Model for research-worker and synthesis agents |
 | `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
+| `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini` | Absolute path to the `gemini` CLI. Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. |
+| `RESEARCH_CODEX_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex` | Absolute path to the `codex` CLI. Same fnm reasoning — agents and the `codex:rescue` skill can't find `codex` on a raw `$PATH`. |
+
+### Tool Resolution — fnm / PATH setup
+
+Node is managed via `fnm`, so `gemini` and `codex` are not on the default `PATH` inside non-interactive Bash subshells. Every agent that shells out to these tools MUST resolve them to absolute paths at the start of its run. Paste this block verbatim at the top of any Bash sequence that calls `gemini` or `codex`:
+
+```bash
+# Resolve gemini + codex to absolute paths (fnm shims aren't active in agent subshells)
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
+[ -x "$GEMINI" ] || GEMINI="$(command -v gemini 2>/dev/null || echo gemini)"
+[ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"
+# Also prepend the fnm bin dir so nested tools (node, npx) resolve correctly
+export PATH="$(dirname "$GEMINI"):$PATH"
+```
+
+From that point in the script, always invoke `"$GEMINI"` and `"$CODEX"` — never bare `gemini` / `codex`, which will fail with `command not found` in agent subshells.
 
 ## CRITICAL — Mandatory Steps (never skip these)
 

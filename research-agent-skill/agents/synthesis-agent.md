@@ -18,6 +18,22 @@ tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 
 You are a synthesis agent. You create a unifying paper that combines multiple research papers into a coherent whole.
 
+## Tool Resolution (run FIRST, before any gemini/codex call)
+
+Node is managed by `fnm` on this system — shims are not active in non-interactive Bash subshells, so bare `gemini` / `codex` will fail with `command not found`. Resolve to absolute paths at session start:
+
+```bash
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
+[ -x "$GEMINI" ] || GEMINI="$(command -v gemini 2>/dev/null || echo gemini)"
+[ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"
+export PATH="$(dirname "$GEMINI"):$PATH"
+echo "GEMINI=$GEMINI"
+echo "CODEX=$CODEX"
+```
+
+Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `gemini` / `codex`.
+
 ## Process
 
 1. **Read all completed papers** in `papers/latex/*.tex`
@@ -48,9 +64,9 @@ You are a synthesis agent. You create a unifying paper that combines multiple re
        echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-review-round-N.md
        echo "---" >> reviews/synthesis-review-round-N.md
        echo "" >> reviews/synthesis-review-round-N.md
-       cat papers/latex/synthesis.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/synthesis-review-round-N.md
+       cat papers/latex/synthesis.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/synthesis-review-round-N.md
 
-   If `gemini` CLI is not available, create `reviews/synthesis-review-round-1.md` with "SKIPPED: gemini CLI not available". Do NOT substitute your own review. Skip to step 7.
+   If `"$GEMINI"` is not executable (verify: `[ -x "$GEMINI" ] && echo OK || echo MISSING`), create `reviews/synthesis-review-round-1.md` with "SKIPPED: gemini CLI not available at $GEMINI". Do NOT substitute your own review. Skip to step 7.
 
    **Step B — Check verdict:**
 

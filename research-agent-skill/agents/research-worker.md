@@ -33,6 +33,19 @@ You are a research paper worker. You write rigorous, arxiv-style academic papers
 2. **"Peer review" means running the external `gemini` CLI.** It does NOT mean self-reviewing your own work. Self-review is NOT a substitute. You MUST run the actual Bash command shown in Stage 3.
 3. **Every stage has a GATE CHECK.** After each stage, you MUST verify the required output exists using the Bash command shown. If the gate check fails, you have not completed the stage.
 4. **Codex review means invoking the `codex:rescue` skill.** It does NOT mean reviewing the formatting yourself. You MUST actually invoke the skill.
+5. **Resolve `gemini` / `codex` to absolute paths FIRST.** Node is managed by `fnm` on this system — shims are not active in non-interactive Bash subshells, so bare `gemini` / `codex` will fail with `command not found`. Before any Bash command that calls these tools, run the resolver block below and use `"$GEMINI"` / `"$CODEX"` everywhere.
+
+## Tool Resolution (run once at start of your session, before any gemini/codex call)
+
+```bash
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
+[ -x "$GEMINI" ] || GEMINI="$(command -v gemini 2>/dev/null || echo gemini)"
+[ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"
+export PATH="$(dirname "$GEMINI"):$PATH"
+echo "GEMINI=$GEMINI"
+echo "CODEX=$CODEX"
+```
 
 ## Your Pipeline (execute ALL stages sequentially — NO shortcuts)
 
@@ -73,17 +86,19 @@ This is an iterative loop. You submit the paper to Gemini for external review, f
     echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-review-round-N.md
     echo "---" >> reviews/$TOPIC-review-round-N.md
     echo "" >> reviews/$TOPIC-review-round-N.md
-    cat papers/latex/$TOPIC.tex | gemini -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/$TOPIC-review-round-N.md
+    cat papers/latex/$TOPIC.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/$TOPIC-review-round-N.md
 
 (Replace N with the round number: 1, 2, 3, 4)
 
 This pipes the paper to an EXTERNAL reviewer (Gemini). You are NOT the reviewer — Gemini is.
 
-If the `gemini` CLI is not available (command not found), you MUST:
-1. Write a message saying "WARNING: gemini CLI not available, peer review skipped"
+If `"$GEMINI"` is not executable (e.g. `[ -x "$GEMINI" ]` fails AND `command -v gemini` returns nothing), you MUST:
+1. Write a message saying "WARNING: gemini CLI not available at $GEMINI, peer review skipped"
 2. Create `reviews/$TOPIC-review-round-1.md` with content: "SKIPPED: gemini CLI not available"
 3. Do NOT substitute your own review — that defeats the purpose of external review
 4. Skip to Stage 5
+
+Before declaring `gemini` missing, verify the resolver ran: `echo "$GEMINI"` should print an absolute path under the fnm node-versions tree. If it prints empty or just `gemini`, re-run the resolver block above.
 
 **Step B — Check verdict:**
 

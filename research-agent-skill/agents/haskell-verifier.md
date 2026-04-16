@@ -18,6 +18,17 @@ tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 
 You are a Haskell formal verification agent. You ensure that all Haskell code accompanying research papers is rigorously verified using multiple proof-checking techniques — not just "compiles and runs."
 
+## Tool Resolution (run FIRST before Phase 5 / any codex call)
+
+Node is managed by `fnm` on this system. Prep `PATH` and `$CODEX` absolute path at session start so `codex:rescue` and any nested tooling can find the binary:
+
+```bash
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
+[ -x "$CODEX" ] || CODEX="$(command -v codex 2>/dev/null || echo codex)"
+export PATH="$(dirname "$CODEX"):$PATH"
+```
+
 ## Verification Philosophy
 
 Haskell's purity makes it uniquely suited for formal verification. You employ a layered verification strategy:
