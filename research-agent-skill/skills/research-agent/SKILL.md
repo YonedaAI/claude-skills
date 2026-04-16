@@ -38,6 +38,9 @@ Read these at the start of execution. All have sensible defaults — none are re
 | `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
 | `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini` | Absolute path to the `gemini` CLI. Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. |
 | `RESEARCH_CODEX_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex` | Absolute path to the `codex` CLI. Same fnm reasoning — agents and the `codex:rescue` skill can't find `codex` on a raw `$PATH`. |
+| `RESEARCH_GIT_AUTHOR` | `Matthew <mlong@magneton.io>` | Git author for every commit the pipeline makes (RFC 2822 `Name <email>` form). Parsed into `RESEARCH_GIT_AUTHOR_NAME` and `RESEARCH_GIT_AUTHOR_EMAIL` by the resolver below. |
+| `RESEARCH_GIT_AUTHOR_NAME` | `Matthew` | Override the parsed name. Takes precedence over `RESEARCH_GIT_AUTHOR` if set. |
+| `RESEARCH_GIT_AUTHOR_EMAIL` | `mlong@magneton.io` | Override the parsed email. Takes precedence over `RESEARCH_GIT_AUTHOR` if set. |
 
 ### Tool Resolution — fnm / PATH setup
 
@@ -86,12 +89,30 @@ $RESEARCH_AUTHOR_EMAIL · $RESEARCH_AUTHOR_URL
 
 ## Phase 1 — Project Setup
 
-Create the project directory and initialize git:
+Create the project directory and initialize git. **Also resolve the git author variable and pin it on the new repo** so every commit this pipeline makes uses `$RESEARCH_GIT_AUTHOR` (default `Matthew <mlong@magneton.io>`), not whatever global `user.name`/`user.email` happens to be configured on the machine.
 
 ```bash
 mkdir -p $PROJECT_PATH/$PROJECT/{papers/{latex,pdf},src,reviews,posts/{twitter,linkedin,facebook,bluesky},images,docs/papers,website}
 cd $PROJECT_PATH/$PROJECT && git init
+
+# --- Git author resolution (applies to every `git commit` in this pipeline) ---
+RESEARCH_GIT_AUTHOR="${RESEARCH_GIT_AUTHOR:-Matthew <mlong@magneton.io>}"
+# Parse "Name <email>" into separate fields unless overrides are set
+GIT_AUTHOR_NAME="${RESEARCH_GIT_AUTHOR_NAME:-$(echo "$RESEARCH_GIT_AUTHOR" | sed -E 's/ *<[^>]+> *$//')}"
+GIT_AUTHOR_EMAIL="${RESEARCH_GIT_AUTHOR_EMAIL:-$(echo "$RESEARCH_GIT_AUTHOR" | sed -nE 's/.*<([^>]+)>.*/\1/p')}"
+# Pin on the newly created repo (local config — does NOT touch the user's global config)
+git config user.name  "$GIT_AUTHOR_NAME"
+git config user.email "$GIT_AUTHOR_EMAIL"
+# Also export for git's env-var path (belt + suspenders for `git commit`)
+export GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+# Verify
+git config user.name
+git config user.email
 ```
+
+Every subsequent `git commit` in the pipeline (Phase 8b, follow-up commits, README commits, etc.) MUST be authored by `$RESEARCH_GIT_AUTHOR`. Do not override per-commit. If you need to double-pin a specific commit, pass `--author="$RESEARCH_GIT_AUTHOR"` to `git commit`.
 
 Copy reusable conversion tools if available in the working directory:
 ```bash
@@ -775,15 +796,22 @@ Verify these directories have content:
 
 If website/.gitignore excludes node_modules/ that is correct. But if it excludes other generated files (like .next/ build output), that is also correct since the static export goes to out/. Do NOT delete website/.gitignore — it is needed. But DO ensure package-lock.json, README.md, and all source files under website/ are staged.
 
-Stage and commit ALL files:
+Stage and commit ALL files. **Author MUST be `$RESEARCH_GIT_AUTHOR`** — re-verify the repo-local config is set before committing, in case this step runs in a fresh subshell:
 
     cd $PROJECT_PATH/$PROJECT
+    # Re-resolve author in case this runs in a fresh subshell
+    RESEARCH_GIT_AUTHOR="${RESEARCH_GIT_AUTHOR:-Matthew <mlong@magneton.io>}"
+    git config user.name  "${RESEARCH_GIT_AUTHOR_NAME:-$(echo "$RESEARCH_GIT_AUTHOR" | sed -E 's/ *<[^>]+> *$//')}"
+    git config user.email "${RESEARCH_GIT_AUTHOR_EMAIL:-$(echo "$RESEARCH_GIT_AUTHOR" | sed -nE 's/.*<([^>]+)>.*/\1/p')}"
     git add -A
     git status  # Verify everything is staged — no untracked files should remain
-    git commit -m "Initial research pipeline output: [topic count] papers + synthesis
-    
+    git commit --author="$RESEARCH_GIT_AUTHOR" -m "Initial research pipeline output: [topic count] papers + synthesis
+
     Papers: [list topics]
     Includes: LaTeX sources, PDFs, Haskell proofs, HTML conversion, Next.js website, social posts"
+
+    # Verify the commit's author is what we expect
+    git log -1 --pretty=format:'%an <%ae>' | grep -qF "$RESEARCH_GIT_AUTHOR" && echo "AUTHOR OK" || { echo "FAIL: commit author is $(git log -1 --pretty=format:'%an <%ae>'), expected $RESEARCH_GIT_AUTHOR"; exit 1; }
 
 **After committing, run `git status` again. If ANY untracked or unstaged files remain, stage and commit them in a follow-up commit. Zero files should be left behind.**
 
