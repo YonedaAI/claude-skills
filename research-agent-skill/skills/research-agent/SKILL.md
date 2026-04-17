@@ -842,6 +842,14 @@ Use ONLY the value from that file. NEVER construct, guess, or type the URL from 
 
 Send to `$SLACK_CHANNEL` via `mcp__claude_ai_Slack__slack_send_message`:
 
+**Before composing the message, derive the human-readable reviewer label from the model env var** — do NOT hardcode a version number like "Gemini 3.1 Pro" or "Gemini 2.5 Pro", which goes stale the moment `$RESEARCH_GEMINI_MODEL` changes (this exact bug has already shipped in production):
+
+    # Turn "gemini-3.1-pro" -> "Gemini 3.1 Pro", "gemini-3.5-pro" -> "Gemini 3.5 Pro", etc.
+    GEMINI_LABEL=$(echo "${RESEARCH_GEMINI_MODEL:-gemini-3.1-pro}" \
+      | sed -E 's/^gemini-/Gemini /' \
+      | sed -E 's/-pro$/ Pro/; s/-flash$/ Flash/; s/-ultra$/ Ultra/')
+    echo "Reviewer label: $GEMINI_LABEL"
+
 ```
 Research Pipeline Complete
 
@@ -853,10 +861,12 @@ Website: <[value from .vercel-url file]>
 GitHub: <https://github.com/$GITHUB_ORG/$PROJECT>
 Social Posts: [count] posts across 4 platforms
 
-All papers peer-reviewed by Gemini 3.1 Pro and format-checked by Codex.
+All papers peer-reviewed by $GEMINI_LABEL and format-checked by Codex.
 ```
 
-CRITICAL: every URL above is wrapped in `<...>`. Substitute the literal URL *inside* the angle brackets — `Website: <https://ferrous-bridge.vercel.app>`, `GitHub: <https://github.com/YonedaAI/ferrous-bridge>`. NEVER emit a bare URL like `GitHub: https://github.com/YonedaAI/ferrous-bridge` — Slack's auto-linker will pull `*Social` from the next bold marker into the href, producing a broken link AND broken bold text (this has been observed in production output).
+CRITICAL:
+- Every URL above is wrapped in `<...>`. Substitute the literal URL *inside* the angle brackets — `Website: <https://ferrous-bridge.vercel.app>`, `GitHub: <https://github.com/YonedaAI/ferrous-bridge>`. NEVER emit a bare URL — Slack's auto-linker will pull `*Social` from the next bold marker into the href, producing a broken link AND broken bold text (observed in production).
+- The reviewer label is derived from `$RESEARCH_GEMINI_MODEL` at runtime (see the `$GEMINI_LABEL` computation above). Do NOT type "Gemini 2.5 Pro" or "Gemini 3.1 Pro" or any other literal version — it will go stale silently.
 
 ---
 

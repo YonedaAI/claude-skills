@@ -63,7 +63,7 @@ Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Ve
 
 Every paper goes through two mandatory, externally-enforced review cycles:
 
-1. **Gemini 3.1 Pro peer review** via CLI — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the `gemini` CLI command and write the output to disk. Gate checks verify the review file exists and has substantive content (>100 bytes).
+1. **Gemini peer review** via CLI (model is `$RESEARCH_GEMINI_MODEL`, default `gemini-3.1-pro`) — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the `gemini` CLI command and write the output to disk. Gate checks verify the review file exists and has substantive content (>100 bytes).
 2. **Codex formatting check** — LaTeX compilation, references, styling issues. Each worker MUST invoke the `codex:rescue` skill (not self-check formatting).
 
 Both cycles include fix iterations (max 2 per cycle). After all workers complete, the orchestrator runs a post-worker verification pass that checks every `reviews/$TOPIC-review.md` file exists with real content. Missing or stub reviews trigger a re-run. The website also gets a Codex review before Vercel deployment.
@@ -89,7 +89,7 @@ project/
 ## Requirements
 
 - Claude Code with plugins enabled
-- `gemini` CLI (Gemini 3.1 Pro peer review)
+- `gemini` CLI (model configurable via `$RESEARCH_GEMINI_MODEL`; default `gemini-3.1-pro`)
 - `pdflatex` (LaTeX compilation)
 - `pandoc` (LaTeX to HTML conversion)
 - `ghc` / `cabal` / `stack` (Haskell verification)
