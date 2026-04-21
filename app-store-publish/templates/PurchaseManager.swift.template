@@ -1,0 +1,160 @@
+#if MAS_BUILD
+import Foundation
+import StoreKit
+import Observation
+
+// Placeholders to substitute before dropping in:
+//   {{IAP_PRODUCT_ID}}    - e.g. com.example.myapp.pro
+//   {{FEATURE_NAME}}      - e.g. iCloudSync (used in UserDefaults key)
+//   {{FEATURE_DISPLAY}}   - e.g. "iCloud Sync" (user-facing)
+
+/// Wraps StoreKit 2 for the single non-consumable IAP that gates {{FEATURE_DISPLAY}}.
+/// Compiled into MAS builds only (see SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD
+/// in fastlane/Fastfile mas_build/mas_debug_build lanes). OSS/Developer-ID builds
+/// don't link StoreKit — the feature is always on there.
+@Observable
+@MainActor
+public final class PurchaseManager {
+    public static let shared = PurchaseManager()
+
+    /// Keep in sync with the product record in App Store Connect and the local .storekit file.
+    nonisolated public static let productID = "{{IAP_PRODUCT_ID}}"
+
+    /// UserDefaults cache so the feature's init site can check purchased state
+    /// synchronously at launch. Verified async on launch via refreshEntitlements();
+    /// if it disagrees, the settings UI shows a restart prompt.
+    nonisolated public static let purchasedKey = "{{FEATURE_NAME}}Purchased"
+
+    public private(set) var product: Product?
+    public var isPremium: Bool {
+        UserDefaults.standard.bool(forKey: Self.purchasedKey)
+    }
+    public private(set) var purchaseInFlight = false
+    public private(set) var lastError: String?
+
+    private var updatesTask: Task<Void, Never>?
+
+    private init() {
+        updatesTask = listenForTransactions()
+        #if DEBUG
+        // Dev-only bypass: set `_skipStoreKitReconcile=YES` in the app's prefs to
+        // keep a manually-flipped purchased flag. Lets the paid path be exercised
+        // without Xcode's StoreKit Test harness attached.
+        if !UserDefaults.standard.bool(forKey: "_skipStoreKitReconcile") {
+            Task { await refreshEntitlements() }
+        }
+        #else
+        Task { await refreshEntitlements() }
+        #endif
+        Task { await loadProduct() }
+    }
+
+    // Singleton lifetime == app lifetime; no deinit needed. The Transaction.updates
+    // listener is expected to run until the process exits.
+
+    /// Fetch the product metadata (display price, localized name) from the App Store
+    /// or the attached StoreKit config file (local dev).
+    public func loadProduct() async {
+        do {
+            let products = try await Product.products(for: [Self.productID])
+            self.product = products.first
+        } catch {
+            self.lastError = "Couldn't load product: \(error.localizedDescription)"
+        }
+    }
+
+    /// Present the Apple Pay sheet. Returns true if the purchase succeeded.
+    @discardableResult
+    public func purchase() async -> Bool {
+        guard let product else {
+            lastError = "Product not loaded"
+            return false
+        }
+        purchaseInFlight = true
+        defer { purchaseInFlight = false }
+
+        do {
+            let result = try await product.purchase()
+            switch result {
+            case .success(let verification):
+                let transaction = try verified(verification)
+                setPremium(true)
+                await transaction.finish()
+                lastError = nil
+                return true
+            case .userCancelled:
+                return false
+            case .pending:
+                return false
+            @unknown default:
+                return false
+            }
+        } catch {
+            lastError = "Purchase failed: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Re-pull entitlements from the App Store (for "Restore Purchases" button).
+    @discardableResult
+    public func restore() async -> Bool {
+        purchaseInFlight = true
+        defer { purchaseInFlight = false }
+        do {
+            try await AppStore.sync()
+            await refreshEntitlements()
+            if isPremium {
+                lastError = nil
+                return true
+            } else {
+                lastError = "No previous purchase found for this Apple ID."
+                return false
+            }
+        } catch {
+            lastError = "Restore failed: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Iterate Transaction.currentEntitlements and update the cached premium flag.
+    public func refreshEntitlements() async {
+        var found = false
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result,
+                  transaction.productID == Self.productID,
+                  transaction.revocationDate == nil else { continue }
+            found = true
+        }
+        setPremium(found)
+    }
+
+    private func setPremium(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: Self.purchasedKey)
+    }
+
+    /// Long-lived listener for post-launch purchases, Ask-to-Buy approvals, refunds, revocations.
+    private func listenForTransactions() -> Task<Void, Never> {
+        Task.detached { [weak self] in
+            for await result in Transaction.updates {
+                guard case .verified(let transaction) = result,
+                      transaction.productID == Self.productID else { continue }
+                await MainActor.run {
+                    self?.setPremium(transaction.revocationDate == nil)
+                }
+                await transaction.finish()
+            }
+        }
+    }
+
+    private func verified<T>(_ result: VerificationResult<T>) throws -> T {
+        switch result {
+        case .unverified: throw PurchaseError.unverified
+        case .verified(let value): return value
+        }
+    }
+}
+
+public enum PurchaseError: Error {
+    case unverified
+}
+#endif

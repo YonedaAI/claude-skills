@@ -18,6 +18,17 @@
         "name": "YonedaAI Research Collective",
         "email": "matthew@yonedaai.com"
       }
+    },
+    {
+      "name": "app-store-publish",
+      "description": "End-to-end Mac App Store publishing pipeline for macOS SwiftUI apps: fastlane setup, cert/profile provisioning via API, sandboxed builds, StoreKit 2 IAP integration, screenshots, metadata, and review submission.",
+      "source": "./app-store-publish",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "YonedaAI Research Collective",
+        "email": "matthew@yonedaai.com"
+      }
     }
   ]
 }

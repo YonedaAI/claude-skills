@@ -1,0 +1,11 @@
+{
+  "name": "app-store-publish",
+  "version": "0.1.0",
+  "description": "End-to-end Mac App Store publishing pipeline for any macOS SwiftUI app: fastlane setup, cert/profile provisioning via API, sandboxed build, StoreKit 2 IAP integration, screenshots, metadata, and review submission.",
+  "author": {
+    "name": "YonedaAI Research Collective",
+    "url": "https://github.com/YonedaAI"
+  },
+  "license": "MIT",
+  "keywords": ["macos", "app-store", "fastlane", "storekit", "iap", "xcodegen", "publishing"]
+}

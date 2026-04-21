@@ -1,0 +1,203 @@
+default_platform(:mac)
+
+# Placeholders to substitute before dropping in:
+#   {{TEAM_ID}}                             - 10-char Apple Team ID
+#   {{BUNDLE_ID}}                           - e.g. com.example.myapp
+#   {{APP_NAME}}                            - Xcode target + product name (no spaces)
+#   {{APP_STORE_PROVISIONING_PROFILE_NAME}} - e.g. "My App Mac MAS"
+
+# Load .env at repo root (gitignored). Provides:
+#   APP_STORE_CONNECT_API_KEY_ID
+#   APP_STORE_CONNECT_API_ISSUER_ID
+#   APP_STORE_CONNECT_API_KEY_PATH  (relative to repo root, e.g. .keys/AuthKey_XXX.p8)
+require "dotenv"
+Dotenv.load(File.expand_path("../.env", __dir__))
+
+def asc_api_key
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"]
+  issuer_id = ENV["APP_STORE_CONNECT_API_ISSUER_ID"]
+  key_path = ENV["APP_STORE_CONNECT_API_KEY_PATH"]
+  return nil if key_id.nil? || issuer_id.nil? || key_path.nil?
+  absolute_key_path = File.expand_path(key_path, File.expand_path("..", __dir__))
+  return nil unless File.exist?(absolute_key_path)
+  app_store_connect_api_key(
+    key_id: key_id,
+    issuer_id: issuer_id,
+    key_filepath: absolute_key_path,
+    in_house: false
+  )
+end
+
+platform :mac do
+  # ── One-time: create MAS cert + installer cert + provisioning profile via API
+
+  desc "One-time: provision Apple Distribution cert + Mac Installer cert + App Store provisioning profile"
+  lane :mas_setup do
+    key = asc_api_key
+    UI.user_error!("Missing App Store Connect API key. Check .env + .keys/AuthKey_*.p8") unless key
+
+    UI.header("Fetching/creating Apple Distribution cert")
+    get_certificates(
+      api_key: key,
+      platform: "macos",
+      generate_apple_certs: true,
+      output_path: "./.keys"
+    )
+    app_cert_id = lane_context[SharedValues::CERT_CERTIFICATE_ID]
+
+    UI.header("Fetching/creating Mac Installer Distribution cert")
+    get_certificates(
+      api_key: key,
+      platform: "macos",
+      type: "mac_installer_distribution",
+      output_path: "./.keys"
+    )
+
+    UI.header("Fetching/creating Mac App Store provisioning profile")
+    # For macOS, the default (no adhoc/developer_id/development flag) is Mac App Store.
+    # cert_id pins the profile to the Apple Distribution cert we just fetched —
+    # without it sigh looks for the legacy "3rd Party Mac Developer Application".
+    get_provisioning_profile(
+      api_key: key,
+      platform: "macos",
+      app_identifier: "{{BUNDLE_ID}}",
+      provisioning_name: "{{APP_STORE_PROVISIONING_PROFILE_NAME}}",
+      cert_id: app_cert_id,
+      output_path: "./.keys"
+    )
+
+    UI.success("MAS setup complete. Certs in Keychain; profile at .keys/AppStore_{{BUNDLE_ID}}.provisionprofile")
+  end
+
+  # ── Sandbox-compatible debug build (launches locally; MAS-signed build can't via AMFI)
+
+  desc "Build sandboxed .app with Apple Development signing so it can LAUNCH locally — use this to test sandbox compatibility before the real MAS build"
+  lane :mas_debug_build do
+    repo = File.expand_path("..", __dir__)
+    sh("mkdir -p '#{repo}/build/mas-debug'")
+
+    UI.header("Archiving with MAS entitlements + Apple Development signing (local-run)")
+    archive_path = "build/mas-debug/{{APP_NAME}}.xcarchive"
+    sh(%(cd '#{repo}' && xcodebuild -project {{APP_NAME}}.xcodeproj -scheme {{APP_NAME}} -configuration Debug -destination 'generic/platform=macOS' -archivePath '#{archive_path}' DEVELOPMENT_TEAM={{TEAM_ID}} CODE_SIGN_STYLE=Automatic CODE_SIGN_ENTITLEMENTS={{APP_NAME}}/{{APP_NAME}}-MAS.entitlements SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG MAS_BUILD' -allowProvisioningUpdates archive | tail -20))
+
+    app_in_archive = "#{repo}/#{archive_path}/Products/Applications/{{APP_NAME}}.app"
+    sh("rm -rf '#{repo}/build/mas-debug/{{APP_NAME}}.app' && cp -R '#{app_in_archive}' '#{repo}/build/mas-debug/{{APP_NAME}}.app'")
+    UI.success("Sandboxed debug build: build/mas-debug/{{APP_NAME}}.app — launch with `open` to test under sandbox")
+  end
+
+  # ── Mac App Store release build (signed .pkg ready for submission)
+
+  desc "Build signed MAS .pkg ready for submission"
+  lane :mas_build do
+    repo = File.expand_path("..", __dir__)
+    sh("mkdir -p '#{repo}/build/mas'")
+
+    UI.header("Archiving with MAS entitlements + Apple Distribution signing")
+    archive_path = "build/mas/{{APP_NAME}}.xcarchive"
+    sh(%(cd '#{repo}' && xcodebuild -project {{APP_NAME}}.xcodeproj -scheme {{APP_NAME}} -configuration Release -destination 'generic/platform=macOS' -archivePath '#{archive_path}' DEVELOPMENT_TEAM={{TEAM_ID}} CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='{{APP_STORE_PROVISIONING_PROFILE_NAME}}' CODE_SIGN_ENTITLEMENTS={{APP_NAME}}/{{APP_NAME}}-MAS.entitlements SWIFT_ACTIVE_COMPILATION_CONDITIONS='MAS_BUILD' -allowProvisioningUpdates archive | tail -40))
+
+    UI.header("Exporting .pkg for App Store submission")
+    export_plist = "build/mas/ExportOptions-MAS.plist"
+    File.write("#{repo}/#{export_plist}", <<~PLIST)
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>method</key><string>app-store</string>
+          <key>signingStyle</key><string>manual</string>
+          <key>signingCertificate</key><string>Apple Distribution</string>
+          <key>installerSigningCertificate</key><string>3rd Party Mac Developer Installer</string>
+          <key>provisioningProfiles</key>
+          <dict>
+              <key>{{BUNDLE_ID}}</key><string>{{APP_STORE_PROVISIONING_PROFILE_NAME}}</string>
+          </dict>
+          <key>teamID</key><string>{{TEAM_ID}}</string>
+      </dict>
+      </plist>
+    PLIST
+
+    sh(%(cd '#{repo}' && xcodebuild -exportArchive -archivePath '#{archive_path}' -exportPath build/mas -exportOptionsPlist '#{export_plist}' -allowProvisioningUpdates | tail -10))
+
+    pkg_path = "build/mas/{{APP_NAME}}.pkg"
+    UI.user_error!("MAS build failed — no .pkg at #{pkg_path}") unless File.exist?("#{repo}/#{pkg_path}")
+    UI.success("MAS build complete: #{pkg_path}")
+  end
+
+  # ── TestFlight upload (optional, for beta testing before real submission)
+
+  desc "Upload current MAS .pkg to TestFlight"
+  lane :testflight do
+    mas_build unless File.exist?("../build/mas/{{APP_NAME}}.pkg")
+    key = asc_api_key
+    UI.user_error!("Missing App Store Connect API key") unless key
+
+    upload_to_testflight(
+      api_key: key,
+      pkg: "build/mas/{{APP_NAME}}.pkg",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  # ── Metadata-only operations (useful for iteration without rebuilding)
+
+  desc "Upload metadata + screenshots only (no build, no submit)"
+  lane :upload_metadata do
+    key = asc_api_key
+    UI.user_error!("Missing App Store Connect API key") unless key
+
+    upload_to_app_store(
+      api_key: key,
+      platform: "osx",
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      skip_metadata: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: false
+    )
+  end
+
+  desc "Upload screenshots only"
+  lane :upload_screenshots do
+    key = asc_api_key
+    UI.user_error!("Missing App Store Connect API key") unless key
+
+    upload_to_app_store(
+      api_key: key,
+      platform: "osx",
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      skip_metadata: true,
+      force: true,
+      submit_for_review: false
+    )
+  end
+
+  # ── Full MAS release: build + upload + metadata + submit
+
+  desc "Full MAS release: build + upload + metadata + submit for review"
+  lane :mas_release do
+    key = asc_api_key
+    UI.user_error!("Missing App Store Connect API key") unless key
+
+    mas_build
+
+    upload_to_app_store(
+      api_key: key,
+      platform: "osx",
+      pkg: "build/mas/{{APP_NAME}}.pkg",
+      skip_screenshots: false,
+      skip_metadata: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: false,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false
+      }
+    )
+
+    UI.success("Submitted {{APP_NAME}} to App Review")
+  end
+end
