@@ -58,6 +58,53 @@ export PATH="$(dirname "$GEMINI"):$PATH"
 
 From that point in the script, always invoke `"$GEMINI"` and `"$CODEX"` — never bare `gemini` / `codex`, which will fail with `command not found` in agent subshells.
 
+### Slack Message Linter (`slack_lint_msg`)
+
+Before EVERY `mcp__claude_ai_Slack__slack_send_message` call, run the proposed message text through this linter. It catches the URL-bleed, malformed-link, and unbalanced-bold bugs that have already shipped to production. Paste this function near the top of any Bash block that composes a Slack message:
+
+```bash
+# Slack message linter — call before every slack_send_message tool invocation.
+# Usage:
+#   slack_lint_msg "$MSG" || { echo "fix the message before sending"; exit 1; }
+slack_lint_msg() {
+  local msg="$1"
+  local fail=0
+
+  # Rule 1: every http/https URL must be inside <...>. A bare URL whose
+  # scheme is not preceded by '<' is rejected.
+  local bare
+  bare=$(printf '%s\n' "$msg" | grep -nE '(^|[^<])(https?://[^[:space:]<>]+)' || true)
+  if [ -n "$bare" ]; then
+    echo "slack_lint: FAIL bare URL(s) — wrap in <...>:"
+    printf '%s\n' "$bare" | sed 's/^/  /'
+    fail=1
+  fi
+
+  # Rule 2: catch the specific 'URL *Word' bleed where Slack's auto-linker
+  # eats the next bold marker into the link text.
+  local bleed
+  bleed=$(printf '%s\n' "$msg" | grep -nE 'https?://[^[:space:]<>]+[[:space:]]+\*[A-Za-z]' || true)
+  if [ -n "$bleed" ]; then
+    echo "slack_lint: FAIL URL followed by '*Word' marker — link will absorb the marker:"
+    printf '%s\n' "$bleed" | sed 's/^/  /'
+    fail=1
+  fi
+
+  # Rule 3: bold markers must be balanced per line.
+  local unbalanced
+  unbalanced=$(printf '%s\n' "$msg" | awk -F'\\*' '/\*/ { if ((NF-1) % 2 != 0) print NR": "$0 }' || true)
+  if [ -n "$unbalanced" ]; then
+    echo "slack_lint: FAIL unbalanced '*bold*' markers (odd count of '*' on a line):"
+    printf '%s\n' "$unbalanced" | sed 's/^/  /'
+    fail=1
+  fi
+
+  return $fail
+}
+```
+
+This is a HARD GATE. If `slack_lint_msg` returns non-zero, fix the message text — do NOT send it.
+
 ## CRITICAL — Mandatory Steps (never skip these)
 
 Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they are not optional:
@@ -69,8 +116,9 @@ Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they 
 5. **Review-fix loops** — After each Gemini review, you MUST fix critical/major issues and re-submit until the verdict is publishable (ACCEPT/MINOR REVISIONS) or 4 rounds are exhausted. After Codex review, max 2 fix iterations.
 6. **Bypass permissions on every Agent spawn** — This pipeline runs unattended. Every `Agent` tool call MUST set `mode: "bypassPermissions"` so sub-agents never pause for permission prompts on Bash/Write/Edit/WebFetch. A single prompt stalls the whole run. See "Agent Spawning Rules" below.
 7. **Every URL in every Slack message MUST be wrapped in angle brackets** — Slack's mrkdwn auto-linker is greedy: a bare URL followed by `*bold*`, punctuation, or any non-whitespace character will pull that adjacent text into the link (observed: `https://github.com/org/repo *Social` rendered as a link to `…/repo *Social`, simultaneously breaking bold formatting). The only safe form is `<https://example.com>` (plain) or `<https://example.com|label>` (with display text). NEVER paste a raw URL into a Slack message. Applies to every `mcp__claude_ai_Slack__slack_send_message` call — worker completion, synthesis, Haskell, website deploy, final summary, and any error notifications.
+8. **Run `slack_lint_msg` before EVERY Slack send and `pipeline-validator` before the final Phase 8 Slack send.** The inline `slack_lint_msg` Bash function (defined above in "Slack Message Linter") gates every individual message — a single bare URL or unbalanced bold marker blocks the send. The `pipeline-validator` agent (definition: `agents/pipeline-validator.md`) gates the final summary by additionally validating OG image dimensions/std-dev, `.vercel-url` integrity, and required artifact presence. Both gates are MANDATORY — a FAIL means fix the issue and re-validate, never bypass.
 
-If you present a plan to the user, the plan MUST explicitly list all 5 of the above as separate line items. Do not collapse them into a phase header.
+If you present a plan to the user, the plan MUST explicitly list all 8 of the above as separate line items. Do not collapse them into a phase header.
 
 ---
 
@@ -558,31 +606,54 @@ Run this Bash command:
 - Each project's website should be visually distinguishable from other projects
 ```
 
-### Step 6c — OG Image Generation
+### Step 6c — OG Image Generation (DESIGNED CARDS, not letterboxed thumbnails)
 
-Spawn `og-image-generator` agent (can run in parallel with website-builder):
+Spawn `og-image-generator` agent (can run in parallel with website-builder). The agent has been rewritten to produce **designed 1200x630 social cards** (gradient background + rendered title text + accent stripe + project tag) using ImageMagick. A letterboxed PDF thumbnail is a PIPELINE FAILURE — see Step 6c.5 below for the gate.
 
 **Agent prompt:**
 ```
-Generate Open Graph images (1200x630) for each research paper.
+Generate Open Graph images (1200x630) for each research paper as DESIGNED social cards (NOT letterboxed PDF thumbnails).
 
 Project root: $PROJECT_PATH/$PROJECT
-Papers: [list topics]
+Project slug: $PROJECT
+Papers: [list of topic slugs, comma-separated]
 
-First, read the theme from `$PROJECT_PATH/$PROJECT/website/theme.json` to get the background color.
+Follow the og-image-generator agent definition exactly:
+1. Resolve ImageMagick (`magick` or legacy `convert`). FAIL the agent if missing.
+2. Read theme colors from website/theme.json.
+3. For each topic, extract `\title{...}` from papers/latex/$TOPIC.tex (or humanize the slug if missing) and render a 1200x630 card using the `caption:` pseudo-format for auto-wrapping title text.
+4. Render a landing card website/public/og/og-default.png with the project name + topic count subtitle.
+5. Verify each output: dimensions == 1200 630, file size >= 30KB, ImageMagick std-dev > 0.08 (rejects flat/letterboxed canvases).
+6. Print a per-file PASS/FAIL summary.
 
-For each paper with a cover image in images/$TOPIC.png, run this Bash command:
-
-    mkdir -p $PROJECT_PATH/$PROJECT/website/public/og
-    sips -z 630 1200 "$PROJECT_PATH/$PROJECT/images/$TOPIC.png" --out "$PROJECT_PATH/$PROJECT/website/public/og/$TOPIC.png" 2>/dev/null
-
-If sips produces poor results (aspect ratio), create a composite using the theme background color (read --bg from theme.json):
-
-    BG_COLOR=$(python3 -c "import json; print(json.load(open('$PROJECT_PATH/$PROJECT/website/theme.json'))['colors']['bg'])")
-    convert -size 1200x630 "xc:$BG_COLOR" "$PROJECT_PATH/$PROJECT/images/$TOPIC.png" -gravity center -resize 500x600 -composite "$PROJECT_PATH/$PROJECT/website/public/og/$TOPIC.png"
-
-Also create a default og-image.png for the landing page using the first paper's cover.
+DO NOT fall back to `sips` (cannot render text). DO NOT just resize images/$TOPIC.png onto a black canvas — that is the regression we are fixing.
 ```
+
+### Step 6c.5 — OG Validation Gate (MANDATORY)
+
+After the agent returns, validate every OG image BEFORE Step 6d. This catches the letterboxed-thumbnail regression at the source instead of letting it propagate to Slack/social cards.
+
+```bash
+cd $PROJECT_PATH/$PROJECT
+MAGICK="$(command -v magick 2>/dev/null || command -v convert 2>/dev/null)"
+[ -n "$MAGICK" ] || { echo "FAIL: ImageMagick missing — cannot validate OG images"; exit 1; }
+
+og_fail=0
+for f in website/public/og/*.png; do
+  dims=$("$MAGICK" identify -format "%w %h" "$f")
+  size=$(stat -f %z "$f" 2>/dev/null || stat -c %s "$f")
+  std=$("$MAGICK" identify -format "%[fx:standard_deviation]" "$f" 2>/dev/null)
+  [ "$dims" = "1200 630" ] || { echo "FAIL ($f): dims=$dims (need 1200 630)"; og_fail=1; continue; }
+  [ "$size" -ge 30000 ]    || { echo "FAIL ($f): size=${size}B (need >=30KB)"; og_fail=1; continue; }
+  awk -v s="$std" 'BEGIN { exit !(s+0 < 0.08) }' && { echo "FAIL ($f): std=$std (looks letterboxed/flat)"; og_fail=1; continue; }
+  echo "PASS ($f): ${dims//[[:space:]]/x}, ${size}B, std=$std"
+done
+
+[ "$og_fail" = 0 ] || { echo "OG VALIDATION FAILED — re-spawn og-image-generator before deploying"; exit 1; }
+echo "OG VALIDATION: PASS"
+```
+
+If this gate fails, re-spawn `og-image-generator` (same prompt). Do not proceed to Step 6d/6e until every OG image passes.
 
 ### Step 6d — Codex Website Review (MANDATORY — do NOT skip)
 
@@ -678,6 +749,8 @@ Codex review: [issues found] → [issues fixed]
 ```
 
 Substitute the literal URL inside the angle brackets — e.g. `URL: <https://ferrous-bridge.vercel.app>`. Angle brackets are REQUIRED; without them Slack's auto-linker will consume adjacent characters from the next line/marker into the URL.
+
+**MANDATORY — run `slack_lint_msg` on the composed message before sending.** Compose the message into a `$DEPLOY_MSG` variable, run `slack_lint_msg "$DEPLOY_MSG" || exit 1`, then send. The linter blocks bare URLs and unbalanced bold markers — same gate used for the final summary.
 
 ---
 
@@ -840,33 +913,72 @@ Then create the repo:
 
 Use ONLY the value from that file. NEVER construct, guess, or type the URL from memory.
 
-Send to `$SLACK_CHANNEL` via `mcp__claude_ai_Slack__slack_send_message`:
+#### Step 8d.1 — Compose the message text into a variable, then run BOTH gates
 
-**Before composing the message, derive the human-readable reviewer label from the model env var** — do NOT hardcode a version number like "Gemini 3.1 Pro" or "Gemini 2.5 Pro", which goes stale the moment `$RESEARCH_GEMINI_MODEL` changes (this exact bug has already shipped in production):
+```bash
+# Read URL from disk — never type it from memory.
+VERCEL_URL=$(cat $PROJECT_PATH/$PROJECT/.vercel-url)
 
-    # Turn "gemini-3.1-pro" -> "Gemini 3.1 Pro", "gemini-3.5-pro" -> "Gemini 3.5 Pro", etc.
-    GEMINI_LABEL=$(echo "${RESEARCH_GEMINI_MODEL:-gemini-3.1-pro}" \
-      | sed -E 's/^gemini-/Gemini /' \
-      | sed -E 's/-pro$/ Pro/; s/-flash$/ Flash/; s/-ultra$/ Ultra/')
-    echo "Reviewer label: $GEMINI_LABEL"
+# Derive reviewer label from $RESEARCH_GEMINI_MODEL (see below).
+GEMINI_LABEL=$(echo "${RESEARCH_GEMINI_MODEL:-gemini-3.1-pro}" \
+  | sed -E 's/^gemini-/Gemini /' \
+  | sed -E 's/-pro$/ Pro/; s/-flash$/ Flash/; s/-ultra$/ Ultra/')
 
-```
-Research Pipeline Complete
+# Compose the proposed message.
+SLACK_MSG=$(cat <<EOF
+*Research Pipeline Complete*
 
-Project: $PROJECT
-Topics: [comma-separated list]
-Papers: [count] research papers + 1 synthesis
-Haskell: [compiled/skipped] ([module count] modules)
-Website: <[value from .vercel-url file]>
-GitHub: <https://github.com/$GITHUB_ORG/$PROJECT>
-Social Posts: [count] posts across 4 platforms
+*Project:* $PROJECT
+*Topics:* [comma-separated list]
+*Papers:* [count] research papers + 1 synthesis
+*Haskell:* [compiled/skipped] ([module count] modules)
+*Website:* <$VERCEL_URL>
+*GitHub:* <https://github.com/$GITHUB_ORG/$PROJECT>
+*Social Posts:* [count] posts across 4 platforms
 
 All papers peer-reviewed by $GEMINI_LABEL and format-checked by Codex.
+EOF
+)
+
+# Gate 1 — inline linter (cheap, fast, mandatory).
+slack_lint_msg "$SLACK_MSG" || { echo "FIX the message before sending"; exit 1; }
 ```
 
-CRITICAL:
-- Every URL above is wrapped in `<...>`. Substitute the literal URL *inside* the angle brackets — `Website: <https://ferrous-bridge.vercel.app>`, `GitHub: <https://github.com/YonedaAI/ferrous-bridge>`. NEVER emit a bare URL — Slack's auto-linker will pull `*Social` from the next bold marker into the href, producing a broken link AND broken bold text (observed in production).
-- The reviewer label is derived from `$RESEARCH_GEMINI_MODEL` at runtime (see the `$GEMINI_LABEL` computation above). Do NOT type "Gemini 2.5 Pro" or "Gemini 3.1 Pro" or any other literal version — it will go stale silently.
+#### Step 8d.2 — Spawn `pipeline-validator` (HARD GATE before send)
+
+Spawn the `pipeline-validator` agent (foreground, blocks the Slack send) with `mode: "bypassPermissions"`:
+
+**Agent prompt:**
+```
+Validate the pipeline output before the final Slack notification is sent.
+
+PROJECT_PATH: $PROJECT_PATH
+PROJECT: $PROJECT
+EXPECTED_VERCEL_URL: [value of $VERCEL_URL read from .vercel-url]
+
+SLACK_MESSAGE (the EXACT text the orchestrator is about to send — validate verbatim, do not regenerate):
+---
+[paste the literal $SLACK_MSG content here, including all <...>-wrapped URLs]
+---
+
+Run all four check sections (OG images, Slack message URL safety, .vercel-url integrity, required artifacts) per your agent definition. Print PASS/FAIL per check and a final summary block. Exit non-zero on any FAIL.
+```
+
+If the validator returns FAIL:
+- **OG images failed**: re-spawn `og-image-generator` and re-run the validator.
+- **Slack message failed**: rewrite the message (most likely a URL needs `<...>` wrapping or a bold marker is unbalanced) and re-run both gates.
+- **.vercel-url failed**: re-extract from /tmp/vercel-deploy.log or re-deploy.
+- **Artifacts failed**: regenerate the missing file (PDF / HTML / OG image) before sending.
+
+NEVER send the Slack message while the validator is in FAIL state. The whole point of the gate is mechanical enforcement.
+
+#### Step 8d.3 — Send to `$SLACK_CHANNEL` via `mcp__claude_ai_Slack__slack_send_message`
+
+Once **both** gates pass (`slack_lint_msg` returned 0 and `pipeline-validator` printed `OVERALL: PASS`), send the EXACT `$SLACK_MSG` text composed in Step 8d.1. Do NOT recompose the message between gating and sending — any post-validation edit invalidates the lint pass.
+
+CRITICAL — the message text from Step 8d.1 already follows these rules; preserve them on send:
+- Every URL is wrapped in `<...>`. The validator and linter both reject bare URLs — `https://github.com/YonedaAI/ferrous-bridge *Social` is a previously-shipped bug where Slack's auto-linker pulled the next `*` marker into the link, breaking BOTH the URL and the bold formatting.
+- The reviewer label is `$GEMINI_LABEL`, derived from `$RESEARCH_GEMINI_MODEL` at runtime. Never type "Gemini 2.5 Pro" or "Gemini 3.1 Pro" or any other literal version — it goes stale the moment the env var changes.
 
 ---
 
@@ -879,8 +991,8 @@ CRITICAL:
 
 ## Agent Spawning Rules
 
-- **Foreground agents** (need results before continuing): knowledge-base-builder, synthesis-agent, website-builder
+- **Foreground agents** (need results before continuing): knowledge-base-builder, synthesis-agent, website-builder, **pipeline-validator** (final gate before Slack send)
 - **Parallel agents** (independent work): research-workers (all topics), haskell-verifiers (all topics), og-image-generator
 - **Background agents** (can overlap with other work): social-posts (if Vercel URL is already known)
 - Always send parallel agents in a **single message with multiple Agent tool calls**
-- **MANDATORY — bypass permissions on every spawn**: Every Agent tool call in this pipeline MUST include `mode: "bypassPermissions"`. This is equivalent to `--dangerously-skip-permissions` and is required so sub-agents run their Bash/Write/Edit/WebFetch calls without stopping to prompt the user. The pipeline is long-running and unattended — a single prompt stalls the whole run. No exceptions: applies to knowledge-base-builder, research-worker (all topics), synthesis-agent, haskell-verifier, website-builder, og-image-generator, social-posts, and any codex:rescue / ad-hoc agent spawns.
+- **MANDATORY — bypass permissions on every spawn**: Every Agent tool call in this pipeline MUST include `mode: "bypassPermissions"`. This is equivalent to `--dangerously-skip-permissions` and is required so sub-agents run their Bash/Write/Edit/WebFetch calls without stopping to prompt the user. The pipeline is long-running and unattended — a single prompt stalls the whole run. No exceptions: applies to knowledge-base-builder, research-worker (all topics), synthesis-agent, haskell-verifier, website-builder, og-image-generator, social-posts, **pipeline-validator**, and any codex:rescue / ad-hoc agent spawns.
