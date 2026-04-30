@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0f">
+  <title>claude-skills — Plugins for Claude Code by YonedaAI</title>
+  <meta name="description" content="A marketplace of plugins for Claude Code: multi-agent research pipelines, Mac App Store publishing, and more — built by YonedaAI.">
+
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="canonical" href="https://yonedaai.github.io/claude-skills/">
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="claude-skills — Plugins for Claude Code">
+  <meta property="og:description" content="A marketplace of plugins for Claude Code: multi-agent research pipelines, Mac App Store publishing, and more.">
+  <meta property="og:url" content="https://yonedaai.github.io/claude-skills/">
+  <meta property="og:image" content="https://yonedaai.github.io/claude-skills/assets/img/og-default.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="claude-skills — Plugins for Claude Code">
+  <meta name="twitter:description" content="A marketplace of plugins for Claude Code by YonedaAI.">
+  <meta name="twitter:image" content="https://yonedaai.github.io/claude-skills/assets/img/og-default.png">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="./">
+      <span class="brand-mark">cs</span>
+      <span>claude-skills</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="./research-agent/">research-agent</a>
+      <a href="./app-store-publish/">app-store-publish</a>
+      <a href="https://github.com/YonedaAI/claude-skills" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="top">
+    <h1>Plugins for Claude Code, built by YonedaAI</h1>
+    <p class="lead">
+      A small, focused marketplace of Claude Code plugins. Multi-agent pipelines for academic
+      research, end-to-end Mac App Store publishing, and more on the way — each one a real
+      production workflow distilled into an installable skill.
+    </p>
+    <p>
+      <a class="btn" href="#plugins">Browse plugins</a>
+      <a class="btn btn-ghost" href="https://github.com/YonedaAI/claude-skills" rel="noopener">View on GitHub</a>
+    </p>
+  </section>
+
+  <section id="install">
+    <h2>Install the marketplace</h2>
+    <p>One-time setup inside Claude Code. After this, every plugin in the marketplace is one
+      <code>/plugin install</code> away.</p>
+    <pre><code>/plugin marketplace add YonedaAI/claude-skills</code></pre>
+    <p>Then install any plugin from the list below.</p>
+  </section>
+
+  <section id="plugins">
+    <h2>Plugins</h2>
+    <div class="grid grid-2">
+
+      <article class="card">
+        <h3>research-agent <span class="pill">v0.7.7</span></h3>
+        <p>
+          Orchestrates a multi-agent research pipeline: parallel research workers, Gemini peer
+          review, Codex formatting checks, optional Haskell formal verification, Vercel-deployed
+          paper site, multi-platform social posts, and Slack notifications.
+        </p>
+        <a class="card-link" href="./research-agent/">View details →</a>
+      </article>
+
+      <article class="card">
+        <h3>app-store-publish <span class="pill">v0.1.0</span></h3>
+        <p>
+          End-to-end Mac App Store publishing pipeline for SwiftUI apps: fastlane setup,
+          certificate &amp; profile provisioning via the App Store Connect API, sandboxed builds,
+          StoreKit 2 IAP integration, screenshots, metadata, and review submission.
+        </p>
+        <a class="card-link" href="./app-store-publish/">View details →</a>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="about">
+    <h2>About</h2>
+    <p>
+      <strong>claude-skills</strong> is a personal collection of Claude Code plugins extracted
+      from real production work — research papers, shipped macOS apps, automated pipelines.
+      Each plugin captures the hard-won gotchas of an end-to-end workflow so the next run takes
+      hours, not weeks.
+    </p>
+    <p>
+      The repository is open-source under the MIT license. Pull requests welcome — see the
+      individual plugin pages for source links and component layout.
+    </p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p>
+      MIT License · <a href="https://github.com/YonedaAI/claude-skills" rel="noopener">github.com/YonedaAI/claude-skills</a>
+      · YonedaAI Research Collective
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/app.js" defer></script>
+</body>
+</html>

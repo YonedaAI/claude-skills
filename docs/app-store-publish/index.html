@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0f">
+  <title>app-store-publish — claude-skills</title>
+  <meta name="description" content="End-to-end Mac App Store publishing pipeline for SwiftUI apps: fastlane, certs, sandboxed builds, StoreKit 2 IAP, screenshots, metadata, submission.">
+
+  <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
+  <link rel="canonical" href="https://yonedaai.github.io/claude-skills/app-store-publish/">
+  <link rel="stylesheet" href="../assets/css/style.css">
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="app-store-publish — Mac App Store pipeline for Claude Code">
+  <meta property="og:description" content="fastlane setup, certs, sandboxed builds, StoreKit 2 IAP, screenshots, metadata, submission.">
+  <meta property="og:url" content="https://yonedaai.github.io/claude-skills/app-store-publish/">
+  <meta property="og:image" content="https://yonedaai.github.io/claude-skills/assets/img/og-default.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="app-store-publish — Mac App Store pipeline for Claude Code">
+  <meta name="twitter:description" content="An afternoon, not a week. Mac App Store publishing distilled into a Claude Code plugin.">
+  <meta name="twitter:image" content="https://yonedaai.github.io/claude-skills/assets/img/og-default.png">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="../">
+      <span class="brand-mark">cs</span>
+      <span>claude-skills</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="../research-agent/">research-agent</a>
+      <a href="../app-store-publish/" class="active">app-store-publish</a>
+      <a href="https://github.com/YonedaAI/claude-skills" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <p class="crumbs"><a href="../">claude-skills</a> &nbsp;/&nbsp; app-store-publish</p>
+
+  <section class="hero">
+    <h1>app-store-publish <span class="pill">v0.1.0</span></h1>
+    <p class="lead">
+      An end-to-end Mac App Store publishing pipeline for SwiftUI apps. Extracted from a real
+      production release (Copied App by Magneton Labs) and rewritten as a reusable skill plus
+      a stack of reference docs and drop-in templates.
+    </p>
+    <p>
+      <a class="btn" href="https://github.com/YonedaAI/claude-skills/tree/main/app-store-publish" rel="noopener">View source on GitHub</a>
+    </p>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <pre><code>/plugin marketplace add YonedaAI/claude-skills
+/plugin install app-store-publish@local-skills</code></pre>
+  </section>
+
+  <section id="usage">
+    <h2>Usage</h2>
+    <p>Invoke the slash command and the skill will read your app's <code>{{APP_NAME}}</code>,
+      <code>{{BUNDLE_ID}}</code>, <code>{{TEAM_ID}}</code>,
+      <code>{{ICLOUD_CONTAINER}}</code>, and <code>{{IAP_PRODUCT_ID}}</code> from project state
+      (or prompt for them), then walk you through each phase, delegating to the reference docs
+      and drop-in templates as needed.</p>
+    <pre><code>/app-store-publish</code></pre>
+  </section>
+
+  <section id="phases">
+    <h2>Phases</h2>
+    <p>Seven sequential phases. Each one corresponds to a reference document in the plugin source.</p>
+
+    <div class="phase">
+      <div class="phase-num">1</div>
+      <div class="phase-body">
+        <h4>Prerequisites</h4>
+        <p>Apple Developer Program enrollment, App Store Connect app record creation, App Store Connect API key generation. Documents the access roles you need and the gotchas around team membership and API key permissions.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">2</div>
+      <div class="phase-body">
+        <h4>Fastlane setup</h4>
+        <p><code>Gemfile</code>, <code>.env</code> + <code>.keys/</code> directory layout, and an <code>asc_api_key</code> helper that references the <code>.p8</code> private key by path so it never leaves disk.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">3</div>
+      <div class="phase-body">
+        <h4>Certs and profiles</h4>
+        <p>A single <code>mas_setup</code> lane that creates the Apple Distribution cert, the Mac Installer Distribution cert, and the Mac App Store provisioning profile via the App Store Connect API. Documents the Admin-role requirement, <code>cert_id</code> pinning, and the file-extension gotcha.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">4</div>
+      <div class="phase-body">
+        <h4>Sandbox entitlements</h4>
+        <p>The MAS-vs-Developer-ID entitlement split, CloudKit under sandbox, AMFI's local-launch blocking, and a dev-signed <code>mas_debug_build</code> lane for sandbox compatibility testing without a TestFlight round-trip.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">5</div>
+      <div class="phase-body">
+        <h4>IAP integration</h4>
+        <p>StoreKit 2 <code>PurchaseManager</code> pattern, SwiftData CloudKit's boot-time constraint, restart-prompt UX, the <code>Transaction.updates</code> listener, and a debug-only reconciliation bypass for local flag testing.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">6</div>
+      <div class="phase-body">
+        <h4>Metadata and screenshots</h4>
+        <p>The <code>fastlane/metadata/</code> directory layout, the required <code>.txt</code> files, and Retina-native screenshot capture using <code>screencapture</code> piped through <code>sips</code> for the App Store-required dimensions.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">7</div>
+      <div class="phase-body">
+        <h4>Submit and review</h4>
+        <p>The <code>mas_release</code> lane, a review-notes template, and the one genuinely-manual step: creating IAP products in the App Store Connect web UI before they can be referenced by the build.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="templates">
+    <h2>Drop-in templates</h2>
+    <p>Each template uses placeholder substitution so it works for any SwiftUI MAS app.</p>
+    <ul>
+      <li><code>Fastfile.template</code> — all the lanes (<code>mas_setup</code>, <code>mas_build</code>, <code>mas_debug_build</code>, <code>mas_release</code>)</li>
+      <li><code>MAS.entitlements.template</code> — sandboxed variant</li>
+      <li><code>PurchaseManager.swift.template</code> — StoreKit 2 wrapper</li>
+      <li><code>storekit.template</code> — local purchase simulation</li>
+      <li><code>env.example.template</code> — required environment variables and where each value comes from</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this exists</h2>
+    <p>
+      Shipping a sandboxed macOS app with IAP to the Mac App Store involves about fifteen
+      non-obvious gotchas across Apple's tooling, fastlane's opinions, and SwiftData's quirks.
+      This plugin captures them all in one place so the next app takes an afternoon, not a
+      week.
+    </p>
+  </section>
+
+  <section id="requirements">
+    <h2>Requirements</h2>
+    <ul>
+      <li>macOS with Xcode</li>
+      <li>Active Apple Developer Program membership</li>
+      <li>App Store Connect record for the app</li>
+      <li>App Store Connect API key (<code>.p8</code> file, key ID, issuer ID)</li>
+      <li><code>fastlane</code> via Bundler (<code>Gemfile</code> in templates)</li>
+      <li>XcodeGen (recommended; <code>project.yml</code> sample provided)</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p>
+      MIT License ·
+      <a href="https://github.com/YonedaAI/claude-skills/tree/main/app-store-publish" rel="noopener">Source</a>
+      · <a href="../">claude-skills</a>
+      · YonedaAI Research Collective
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js" defer></script>
+</body>
+</html>

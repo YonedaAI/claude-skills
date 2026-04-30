@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0f">
+  <title>research-agent — claude-skills</title>
+  <meta name="description" content="A Claude Code plugin that orchestrates a multi-agent research pipeline: parallel workers, Gemini peer review, Codex formatting, Haskell verification, Vercel deployment, social posts, and Slack notifications.">
+
+  <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
+  <link rel="canonical" href="https://yonedaai.github.io/claude-skills/research-agent/">
+  <link rel="stylesheet" href="../assets/css/style.css">
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="research-agent — multi-agent research pipeline for Claude Code">
+  <meta property="og:description" content="Parallel research workers, Gemini peer review, Codex formatting, Haskell verification, Vercel deploy, social posts, Slack notifications.">
+  <meta property="og:url" content="https://yonedaai.github.io/claude-skills/research-agent/">
+  <meta property="og:image" content="https://yonedaai.github.io/claude-skills/assets/img/og-default.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="research-agent — multi-agent research pipeline for Claude Code">
+  <meta name="twitter:description" content="Parallel workers, peer review, formal verification, deployment, social, Slack.">
+  <meta name="twitter:image" content="https://yonedaai.github.io/claude-skills/assets/img/og-default.png">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="../">
+      <span class="brand-mark">cs</span>
+      <span>claude-skills</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="../research-agent/" class="active">research-agent</a>
+      <a href="../app-store-publish/">app-store-publish</a>
+      <a href="https://github.com/YonedaAI/claude-skills" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <p class="crumbs"><a href="../">claude-skills</a> &nbsp;/&nbsp; research-agent</p>
+
+  <section class="hero">
+    <h1>research-agent <span class="pill">v0.7.7</span></h1>
+    <p class="lead">
+      Orchestrates a multi-agent research pipeline. Takes comma-separated topics, spins up
+      parallel research workers, and produces peer-reviewed papers with optional Haskell
+      formal verification, a Vercel-deployed website, multi-platform social posts, and
+      end-to-end Slack notifications.
+    </p>
+    <p>
+      <a class="btn" href="https://github.com/YonedaAI/claude-skills/tree/main/research-agent-skill" rel="noopener">View source on GitHub</a>
+    </p>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p>From inside Claude Code:</p>
+    <pre><code>/plugin marketplace add YonedaAI/claude-skills
+/plugin install research-agent@local-skills</code></pre>
+  </section>
+
+  <section id="usage">
+    <h2>Usage</h2>
+    <pre><code>/research-agent "topic-a,topic-b,topic-c" --perspective "your framing"</code></pre>
+
+    <h3>Options</h3>
+    <table>
+      <thead>
+        <tr><th>Flag</th><th>Description</th><th>Default</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>--perspective "..."</code></td><td>Framing perspective for all papers</td><td>Inferred from project context</td></tr>
+        <tr><td><code>--project &lt;name&gt;</code></td><td>Project directory name</td><td>Derived from first topic</td></tr>
+        <tr><td><code>--project-path &lt;path&gt;</code></td><td>Where to create the project</td><td>Current working directory</td></tr>
+        <tr><td><code>--github-org &lt;org&gt;</code></td><td>GitHub organization</td><td><code>YonedaAI</code></td></tr>
+        <tr><td><code>--no-haskell</code></td><td>Skip Haskell formal verification</td><td>Enabled</td></tr>
+        <tr><td><code>--no-website</code></td><td>Skip website build + Vercel deploy</td><td>Enabled</td></tr>
+        <tr><td><code>--no-social</code></td><td>Skip social media posts</td><td>Enabled</td></tr>
+        <tr><td><code>--slack-channel &lt;ID&gt;</code></td><td>Slack channel for notifications</td><td><code>$RESEARCH_SLACK_CHANNEL</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="pipeline">
+    <h2>Pipeline</h2>
+    <p>Eight phases. Each phase has mandatory checkpoints — a missing review or skipped gate is a hard failure, not a warning.</p>
+
+<pre class="diagram"><code>Phase 1: Setup ──&gt; Phase 2: Knowledge Base ──&gt; Phase 3: Workers (parallel)
+                                                  │
+                              ┌───────────────────┼───────────────────┐
+                              ▼                   ▼                   ▼
+                         Topic A              Topic B              Topic N
+                         Draft (20+ pages)    Draft (20+ pages)    Draft (20+ pages)
+                         Gemini Peer Review   Gemini Peer Review   Gemini Peer Review
+                         Claude Fix           Claude Fix           Claude Fix
+                         Codex LaTeX Check    Codex LaTeX Check    Codex LaTeX Check
+                         Claude Fix           Claude Fix           Claude Fix
+                         Compile PDF          Compile PDF          Compile PDF
+                         Cover Image          Cover Image          Cover Image
+                         Slack ✓              Slack ✓              Slack ✓
+                              │                   │                   │
+                              └───────────────────┼───────────────────┘
+                                                  ▼
+Phase 4: Synthesis ──&gt; Phase 5: Haskell Verify ──&gt; Phase 6: Website + Vercel
+                                                          │
+                                                   Phase 7: Social Posts
+                                                          │
+                                                   Phase 8: Git + GitHub + Slack Summary</code></pre>
+
+    <h3>Phases</h3>
+
+    <div class="phase">
+      <div class="phase-num">1</div>
+      <div class="phase-body">
+        <h4>Project setup</h4>
+        <p>Creates the project directory, initializes git, pins the commit author from <code>$RESEARCH_GIT_AUTHOR</code>.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">2</div>
+      <div class="phase-body">
+        <h4>Knowledge base</h4>
+        <p>The <code>knowledge-base-builder</code> agent reads source files (LaTeX, Markdown, PDFs) and produces a structured <code>.knowledge-base.md</code> that every worker reads before drafting.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">3</div>
+      <div class="phase-body">
+        <h4>Parallel research workers</h4>
+        <p>One <code>research-worker</code> per topic, spawned in parallel. Each one drafts an arxiv-style ≥20-page LaTeX paper, accompanying Haskell code, runs Gemini peer review and Codex formatting check, fixes issues, compiles to PDF, generates a cover image, and notifies Slack.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">4</div>
+      <div class="phase-body">
+        <h4>Synthesis</h4>
+        <p>The <code>synthesis-agent</code> reads every worker's output and produces a unifying paper that draws cross-cutting themes and emergent properties.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">5</div>
+      <div class="phase-body">
+        <h4>Haskell verification</h4>
+        <p>The <code>haskell-verifier</code> compiles each topic's Haskell module with GHC, runs its tests, and routes failures through Codex for repair. Optional — disable with <code>--no-haskell</code>.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">6</div>
+      <div class="phase-body">
+        <h4>Website + Vercel</h4>
+        <p>The <code>website-builder</code> generates a Next.js 14 dark-themed static site with paper cards, individual paper pages, KaTeX math rendering, and PDF downloads. Designed 1200×630 OG cards are generated and validated, the site is reviewed by Codex, then deployed to Vercel under the project's slug subdomain.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">7</div>
+      <div class="phase-body">
+        <h4>Social posts</h4>
+        <p>The <code>social-posts</code> agent writes platform-tuned posts for Twitter/X, LinkedIn, Facebook, and Bluesky — respecting each platform's character limits, formatting rules, and audience tone.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">8</div>
+      <div class="phase-body">
+        <h4>Finalize</h4>
+        <p>Generates the project README, runs the <code>pipeline-validator</code> hard gate (OG image dimensions, Slack message URL safety, .vercel-url integrity, artifact presence), commits and pushes to a new GitHub repo, and sends a final Slack summary.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="agents">
+    <h2>Agents</h2>
+    <div class="grid grid-2">
+
+      <article class="card agent-card">
+        <h4>knowledge-base-builder</h4>
+        <p class="meta">Sonnet</p>
+        <p>Reads source files, extracts structured summaries, writes the canonical knowledge base every worker reads before drafting.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>research-worker</h4>
+        <p class="meta">Opus · spawned per topic</p>
+        <p>Drafts an arxiv-style LaTeX paper plus optional Haskell code. Runs its own Gemini peer review loop and Codex formatting check before handing off.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>synthesis-agent</h4>
+        <p class="meta">Opus</p>
+        <p>Reads every completed worker output and produces a unifying paper that draws cross-cutting themes and shows compositional structure.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>haskell-verifier</h4>
+        <p class="meta">Opus</p>
+        <p>Compiles each topic's Haskell module with GHC, runs tests, and routes failures through Codex for repair. Ensures formal verification code actually compiles.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>website-builder</h4>
+        <p class="meta">Sonnet</p>
+        <p>Builds a Next.js 14 dark-themed research site with KaTeX math rendering, paper cards, PDF downloads, and OG meta tags. Deploys to Vercel under the project slug.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>og-image-generator</h4>
+        <p class="meta">Haiku</p>
+        <p>Renders 1200×630 designed social cards with the paper title, accent stripe, and project tag — not letterboxed PDF thumbnails.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>social-posts</h4>
+        <p class="meta">Sonnet</p>
+        <p>Generates platform-tuned posts for Twitter/X, LinkedIn, Facebook, and Bluesky with the right tone and character limits per platform.</p>
+      </article>
+
+      <article class="card agent-card">
+        <h4>pipeline-validator</h4>
+        <p class="meta">Haiku · hard gate</p>
+        <p>The pre-Slack constraint checker. Validates OG dimensions and pixel std-dev, scans the proposed Slack message text for bare URLs and unbalanced bold markers, cross-checks the deployed Vercel URL, and confirms required artifacts exist before the final notification is sent.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="reviews">
+    <h2>Review pipeline</h2>
+    <p>
+      Every paper goes through two mandatory, externally-enforced review cycles.
+    </p>
+    <ol>
+      <li>
+        <strong>Gemini peer review</strong> via the <code>gemini</code> CLI (model is
+        <code>$RESEARCH_GEMINI_MODEL</code>, default <code>gemini-3.1-pro</code>) — adversarial review by an external LLM, not self-review. Saved to <code>reviews/$TOPIC-review-round-N.md</code>. Iteration runs until the verdict is <code>ACCEPT</code> or <code>MINOR REVISIONS</code> (max 4 rounds).
+      </li>
+      <li>
+        <strong>Codex formatting check</strong> — LaTeX compilation, references, styling. Each worker invokes the <code>codex:rescue</code> skill and applies fixes. Max 2 fix iterations per cycle.
+      </li>
+    </ol>
+    <p>
+      After all workers complete, an orchestrator-level pass verifies every <code>reviews/$TOPIC-review.md</code> exists with substantive content. The website also gets its own Codex review before Vercel deploy. The <code>pipeline-validator</code> agent then hard-gates the final Slack notification on OG image quality, message URL safety, and artifact integrity.
+    </p>
+  </section>
+
+  <section id="output">
+    <h2>Output structure</h2>
+<pre class="diagram"><code>project/
+├── papers/latex/*.tex          # LaTeX sources with GrokRxiv sidebar
+├── papers/pdf/*.pdf            # Compiled PDFs
+├── reviews/*.md                # Gemini peer review feedback
+├── src/*/                      # Haskell formal verification code
+├── images/*.png                # Cover images (300 DPI)
+├── docs/papers/*.html          # Pandoc HTML conversions
+├── website/                    # Next.js 14 static site (deployed to Vercel)
+│   └── public/og/*.png         # 1200×630 designed OG cards
+├── posts/{twitter,linkedin,facebook,bluesky}/
+│                               # Platform-specific social posts
+├── .knowledge-base.md          # Structured knowledge base
+└── README.md                   # Project overview</code></pre>
+  </section>
+
+  <section id="env">
+    <h2>Configuration</h2>
+    <p>All configuration is via environment variables. Sensible defaults are baked in — none are required for a basic run.</p>
+
+    <details>
+      <summary>Environment variables (21+)</summary>
+      <table>
+        <thead>
+          <tr><th>Env Var</th><th>Default</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>RESEARCH_AUTHOR_NAME</code></td><td><code>Matthew Long</code></td><td>Paper author name</td></tr>
+          <tr><td><code>RESEARCH_AUTHOR_EMAIL</code></td><td><code>matthew@yonedaai.com</code></td><td>Author contact email</td></tr>
+          <tr><td><code>RESEARCH_AUTHOR_URL</code></td><td><code>https://yonedaai.com</code></td><td>Author website</td></tr>
+          <tr><td><code>RESEARCH_COLLABORATION</code></td><td><code>The YonedaAI Collaboration</code></td><td>Collaboration line in author block</td></tr>
+          <tr><td><code>RESEARCH_INSTITUTION</code></td><td><code>YonedaAI Research Collective</code></td><td>Institution line</td></tr>
+          <tr><td><code>RESEARCH_LOCATION</code></td><td><code>Chicago, IL</code></td><td>Author location</td></tr>
+          <tr><td><code>RESEARCH_GITHUB_ORG</code></td><td><code>YonedaAI</code></td><td>GitHub org for repo creation</td></tr>
+          <tr><td><code>RESEARCH_SLACK_CHANNEL</code></td><td><code>C0AK269AVSA</code></td><td>Slack channel for notifications</td></tr>
+          <tr><td><code>RESEARCH_GEMINI_MODEL</code></td><td><code>gemini-3.1-pro</code></td><td>Gemini model for peer review</td></tr>
+          <tr><td><code>RESEARCH_WORKER_MODEL</code></td><td><code>opus</code></td><td>Model for research-worker / synthesis</td></tr>
+          <tr><td><code>RESEARCH_UTILITY_MODEL</code></td><td><code>sonnet</code></td><td>Model for utility agents</td></tr>
+          <tr><td><code>RESEARCH_GEMINI_BIN</code></td><td><em>fnm absolute path</em></td><td>Absolute path to <code>gemini</code> CLI (fnm shims aren't active in agent subshells)</td></tr>
+          <tr><td><code>RESEARCH_CODEX_BIN</code></td><td><em>fnm absolute path</em></td><td>Absolute path to <code>codex</code> CLI</td></tr>
+          <tr><td><code>RESEARCH_GIT_AUTHOR</code></td><td><code>Matthew &lt;mlong@magneton.io&gt;</code></td><td>Git author for every commit (RFC 2822)</td></tr>
+          <tr><td><code>RESEARCH_GIT_AUTHOR_NAME</code></td><td><em>parsed</em></td><td>Override the parsed name</td></tr>
+          <tr><td><code>RESEARCH_GIT_AUTHOR_EMAIL</code></td><td><em>parsed</em></td><td>Override the parsed email</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </section>
+
+  <section id="requirements">
+    <h2>Requirements</h2>
+    <ul>
+      <li>Claude Code with plugins enabled</li>
+      <li><code>gemini</code> CLI (model configurable via <code>$RESEARCH_GEMINI_MODEL</code>)</li>
+      <li><code>pdflatex</code> for LaTeX compilation</li>
+      <li><code>pandoc</code> for LaTeX → HTML conversion</li>
+      <li><code>ghc</code> / <code>cabal</code> / <code>stack</code> for Haskell verification</li>
+      <li><code>vercel</code> CLI for deployment</li>
+      <li><code>pdftoppm</code> from poppler for cover image generation</li>
+      <li>ImageMagick (<code>magick</code>) for OG card rendering</li>
+      <li>Codex plugin (<code>codex@openai-codex</code>)</li>
+      <li>Slack MCP for notifications</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p>
+      MIT License ·
+      <a href="https://github.com/YonedaAI/claude-skills/tree/main/research-agent-skill" rel="noopener">Source</a>
+      · <a href="../">claude-skills</a>
+      · YonedaAI Research Collective
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js" defer></script>
+</body>
+</html>
