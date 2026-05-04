@@ -66,7 +66,13 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
        echo "" >> reviews/synthesis-review-round-N.md
        cat papers/latex/synthesis.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/synthesis-review-round-N.md
 
-   If `"$GEMINI"` is not executable (verify: `[ -x "$GEMINI" ] && echo OK || echo MISSING`), create `reviews/synthesis-review-round-1.md` with "SKIPPED: gemini CLI not available at $GEMINI". Do NOT substitute your own review. Skip to step 7.
+   If `"$GEMINI"` is not executable, hard-fail. Do NOT write a `SKIPPED:` stub — that path was removed because it caused silent skipping.
+
+   ```bash
+   [ -x "$GEMINI" ] || { echo "FATAL: gemini CLI not available at $GEMINI — cannot run mandatory peer review"; exit 1; }
+   ```
+
+   The orchestrator will catch the non-zero exit and abort the pipeline.
 
    **Step B — Check verdict:**
 
@@ -92,22 +98,55 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
        test -f reviews/synthesis-review.md && echo "FINAL REVIEW EXISTS" || echo "MISSING"
        tail -5 reviews/synthesis-review.md | grep -i "VERDICT" || echo "NO VERDICT"
 
-7. **Codex Formatting Check (MANDATORY — NEVER skip)**
+7. **Codex Formatting Review-Fix Loop (MANDATORY — NEVER skip)**
 
    **YOU MUST INVOKE THE `codex:rescue` SKILL. DO NOT CHECK FORMATTING YOURSELF.**
 
-   Invoke `codex:rescue` with: "Review papers/latex/synthesis.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling. List all issues."
+   Iterative loop mirroring the Gemini stage: invoke Codex → fix → re-invoke Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (so up to 3 Codex invocations).
 
-   Save the Codex output to `reviews/synthesis-codex-review.md` with header:
+   #### Round N (N = 1, 2, 3):
 
-       echo "---" > reviews/synthesis-codex-review.md
-       echo "reviewer: codex (OpenAI)" >> reviews/synthesis-codex-review.md
-       echo "type: formatting" >> reviews/synthesis-codex-review.md
-       echo "paper: synthesis" >> reviews/synthesis-codex-review.md
-       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-codex-review.md
-       echo "---" >> reviews/synthesis-codex-review.md
+   **Step A — Invoke `codex:rescue` and save to round file:**
 
-   Append Codex output. Fix all issues. Max 2 iterations.
+   Invoke `codex:rescue` with: "Review papers/latex/synthesis.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX."
+
+   Save the Codex output (replace `N` with the round number):
+
+       echo "---" > reviews/synthesis-codex-review-round-N.md
+       echo "reviewer: codex (OpenAI)" >> reviews/synthesis-codex-review-round-N.md
+       echo "type: formatting" >> reviews/synthesis-codex-review-round-N.md
+       echo "paper: synthesis" >> reviews/synthesis-codex-review-round-N.md
+       echo "round: N" >> reviews/synthesis-codex-review-round-N.md
+       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-codex-review-round-N.md
+       echo "---" >> reviews/synthesis-codex-review-round-N.md
+
+   Append Codex output.
+
+   If `"$CODEX"` is not executable, hard-fail:
+
+   ```bash
+   [ -x "$CODEX" ] || { echo "FATAL: codex CLI not available at $CODEX — cannot run mandatory formatting review"; exit 1; }
+   ```
+
+   Do NOT write a `SKIPPED:` stub.
+
+   **Step B — Check verdict:**
+
+       tail -20 reviews/synthesis-codex-review-round-N.md | grep -i "VERDICT"
+
+   - **PASS**: copy round to canonical (`cp reviews/synthesis-codex-review-round-N.md reviews/synthesis-codex-review.md`), proceed to step 8.
+   - **NEEDS_FIX** (or no VERDICT): proceed to Step C, then Step A with N+1.
+   - If N == 3 (cap reached): copy and proceed, log "WARN: hit Codex 2-pass cap with NEEDS_FIX still pending".
+
+   **Step C — Fix ALL issues:** Read the round file, apply each edit to `papers/latex/synthesis.tex`, then back to Step A with N+1.
+
+   **Step D — After loop ends:**
+
+       cp reviews/synthesis-codex-review-round-N.md reviews/synthesis-codex-review.md
+
+   **GATE CHECK:**
+   - At least 1 round file exists.
+   - `reviews/synthesis-codex-review.md` exists, > 500 bytes, contains a VERDICT line.
 
 8. **GrokRxiv sidebar**: Add to preamble
 

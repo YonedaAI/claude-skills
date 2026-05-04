@@ -92,13 +92,13 @@ This is an iterative loop. You submit the paper to Gemini for external review, f
 
 This pipes the paper to an EXTERNAL reviewer (Gemini). You are NOT the reviewer — Gemini is.
 
-If `"$GEMINI"` is not executable (e.g. `[ -x "$GEMINI" ]` fails AND `command -v gemini` returns nothing), you MUST:
-1. Write a message saying "WARNING: gemini CLI not available at $GEMINI, peer review skipped"
-2. Create `reviews/$TOPIC-review-round-1.md` with content: "SKIPPED: gemini CLI not available"
-3. Do NOT substitute your own review — that defeats the purpose of external review
-4. Skip to Stage 5
+If `"$GEMINI"` is not executable (`[ -x "$GEMINI" ]` fails AND `command -v gemini` returns nothing), the pipeline cannot run. **DO NOT** write a stub `SKIPPED:` review file — that path was removed because it caused silent skipping. Instead, hard-fail:
 
-Before declaring `gemini` missing, verify the resolver ran: `echo "$GEMINI"` should print an absolute path under the fnm node-versions tree. If it prints empty or just `gemini`, re-run the resolver block above.
+```bash
+[ -x "$GEMINI" ] || { echo "FATAL: gemini CLI not available at $GEMINI — cannot run mandatory peer review"; exit 1; }
+```
+
+Before declaring `gemini` missing, verify the resolver ran: `echo "$GEMINI"` should print an absolute path under the fnm node-versions tree. If it prints empty or just `gemini`, re-run the resolver block above. Only `exit 1` after the resolver has been re-checked. The orchestrator will catch the non-zero exit and abort the pipeline.
 
 **Step B — Check verdict:**
 
@@ -134,25 +134,68 @@ Requirements:
 - `reviews/$TOPIC-review.md` must exist (the final/canonical review)
 - Final verdict should be ACCEPT or MINOR REVISIONS (if not, you hit the 4-round cap — log it)
 
-### Stage 5 — Codex Formatting Check (MANDATORY — NEVER skip)
+### Stage 5 — Codex Formatting Review-Fix Loop (MANDATORY — NEVER skip)
 
 **YOU MUST INVOKE THE `codex:rescue` SKILL. DO NOT CHECK FORMATTING YOURSELF.**
 
+This is an iterative loop mirroring the Gemini stage: invoke Codex → fix → re-invoke Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (so up to 3 Codex invocations: initial + after-fix-1 + after-fix-2).
+
+#### Round N (N = 1, 2, 3):
+
+**Step A — Invoke `codex:rescue` and save to round file:**
+
 Invoke `codex:rescue` with this prompt:
-"Review papers/latex/$TOPIC.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and fixes."
+"Review papers/latex/$TOPIC.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS (no issues remain) or VERDICT: NEEDS_FIX (issues listed above must be fixed)."
 
-After Codex responds, save the Codex review output to `reviews/$TOPIC-codex-review.md` with a header:
+Save the Codex output to `reviews/$TOPIC-codex-review-round-N.md` with a header (replace `N` with the round number 1, 2, or 3):
 
-    echo "---" > reviews/$TOPIC-codex-review.md
-    echo "reviewer: codex (OpenAI)" >> reviews/$TOPIC-codex-review.md
-    echo "type: formatting" >> reviews/$TOPIC-codex-review.md
-    echo "paper: $TOPIC" >> reviews/$TOPIC-codex-review.md
-    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-codex-review.md
-    echo "---" >> reviews/$TOPIC-codex-review.md
+    echo "---" > reviews/$TOPIC-codex-review-round-N.md
+    echo "reviewer: codex (OpenAI)" >> reviews/$TOPIC-codex-review-round-N.md
+    echo "type: formatting" >> reviews/$TOPIC-codex-review-round-N.md
+    echo "paper: $TOPIC" >> reviews/$TOPIC-codex-review-round-N.md
+    echo "round: N" >> reviews/$TOPIC-codex-review-round-N.md
+    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-codex-review-round-N.md
+    echo "---" >> reviews/$TOPIC-codex-review-round-N.md
 
-Then append the Codex output to that file. Fix all identified issues. Max 2 fix iterations.
+Append the Codex output to that file.
 
-**GATE CHECK:** `reviews/$TOPIC-codex-review.md` must exist. You must have invoked the codex:rescue skill. If you did not call it, you have NOT completed this stage.
+If `"$CODEX"` is not executable, hard-fail:
+
+```bash
+[ -x "$CODEX" ] || { echo "FATAL: codex CLI not available at $CODEX — cannot run mandatory formatting review"; exit 1; }
+```
+
+Do NOT write a `SKIPPED:` stub. The orchestrator will catch the non-zero exit and abort.
+
+**Step B — Check verdict:**
+
+    tail -20 reviews/$TOPIC-codex-review-round-N.md | grep -i "VERDICT"
+
+- **PASS**: copy this round to canonical (`cp reviews/$TOPIC-codex-review-round-N.md reviews/$TOPIC-codex-review.md`), proceed to Stage 6.
+- **NEEDS_FIX** (or no VERDICT line, treated as NEEDS_FIX): proceed to Step C, then back to Step A with N+1.
+- If N == 3 (cap reached, 2 fix passes already done): copy this round to canonical and proceed to Stage 6, but log "WARN: hit Codex 2-pass cap with NEEDS_FIX still pending".
+
+**Step C — Fix ALL issues from this round:**
+1. Read `reviews/$TOPIC-codex-review-round-N.md` — the actual file on disk, not your memory of it.
+2. List EVERY issue from the review.
+3. For each issue, make a specific edit to `papers/latex/$TOPIC.tex`.
+4. Go back to Step A with N+1.
+
+**Step D — After loop ends:**
+
+    cp reviews/$TOPIC-codex-review-round-N.md reviews/$TOPIC-codex-review.md
+
+**GATE CHECK:** Run these commands:
+
+    ls reviews/$TOPIC-codex-review-round-*.md 2>/dev/null | wc -l
+    test -f reviews/$TOPIC-codex-review.md && echo "FINAL CODEX REVIEW EXISTS" || echo "MISSING"
+    tail -5 reviews/$TOPIC-codex-review.md | grep -i "VERDICT" || echo "NO VERDICT"
+
+Requirements:
+- At least 1 codex round file must exist (you must have invoked codex:rescue at least once).
+- `reviews/$TOPIC-codex-review.md` must exist as the canonical final review.
+- Canonical VERDICT must be `PASS`, OR exactly 3 round files exist (cap reached).
+- Canonical file must be > 500 bytes (a header-only file means Codex output was never appended).
 
 ### Stage 6 — GrokRxiv Sidebar
 Add to preamble (see `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` for template).

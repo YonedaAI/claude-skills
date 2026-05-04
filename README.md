@@ -8,7 +8,7 @@ A small marketplace of [Claude Code](https://docs.claude.com/en/docs/claude-code
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [`research-agent`](./research-agent-skill/) | `0.7.7` | Multi-agent research pipeline with Gemini peer review, Codex formatting, optional Haskell verification, Vercel deployment, social posts, and Slack notifications. |
+| [`research-agent`](./research-agent-skill/) | `0.7.8` | Multi-agent research pipeline with Gemini peer review, Codex formatting, optional Haskell verification, Vercel deployment, social posts, and Slack notifications. |
 | [`app-store-publish`](./app-store-publish/) | `0.1.0` | End-to-end Mac App Store publishing pipeline for SwiftUI apps: fastlane setup, certs/profiles, sandboxed builds, StoreKit 2 IAP, screenshots, metadata, submission. |
 
 ## Install the marketplace

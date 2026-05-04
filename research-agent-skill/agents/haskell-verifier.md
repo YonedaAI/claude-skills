@@ -156,12 +156,57 @@ liquid src/$TOPIC/CoreModule.hs 2>&1
 
 If Liquid Haskell is NOT available, skip this phase but note it in the report. Do NOT fail the pipeline for this.
 
-### Phase 5 — Codex Review
+### Phase 5 — Codex Review-Fix Loop (MANDATORY — NEVER skip)
 
-Invoke `codex:rescue` skill with:
-"Review Haskell code in src/$TOPIC/ for: type safety, missing type signatures, incomplete patterns, code quality, idiomatic style, correctness of QuickCheck properties, soundness of equational proofs. List issues."
+**YOU MUST INVOKE THE `codex:rescue` SKILL. DO NOT REVIEW THE CODE YOURSELF.**
 
-Fix Codex-identified issues (max 2 iterations).
+Iterative loop: invoke Codex → fix → re-invoke Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (up to 3 invocations).
+
+#### Round N (N = 1, 2, 3):
+
+**Step A — Invoke `codex:rescue` and save to round file:**
+
+Invoke `codex:rescue` with:
+"Review Haskell code in src/$TOPIC/ for: type safety, missing type signatures, incomplete patterns, code quality, idiomatic style, correctness of QuickCheck properties, soundness of equational proofs. List issues with file:line references and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX."
+
+Save the Codex output (replace `N` with the round number):
+
+    mkdir -p reviews
+    echo "---" > reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "reviewer: codex (OpenAI)" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "type: haskell" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "topic: $TOPIC" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "round: N" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "---" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+
+Append Codex output.
+
+If `"$CODEX"` is not executable, hard-fail:
+
+```bash
+[ -x "$CODEX" ] || { echo "FATAL: codex CLI not available at $CODEX — cannot run mandatory Haskell review"; exit 1; }
+```
+
+Do NOT write a `SKIPPED:` stub.
+
+**Step B — Check verdict:**
+
+    tail -20 reviews/$TOPIC-haskell-codex-review-round-N.md | grep -i "VERDICT"
+
+- **PASS**: copy round to canonical (`cp reviews/$TOPIC-haskell-codex-review-round-N.md reviews/$TOPIC-haskell-codex-review.md`), proceed to Phase 6.
+- **NEEDS_FIX** (or no VERDICT): proceed to Step C, then back to Step A with N+1.
+- If N == 3 (cap reached): copy and proceed, log "WARN: hit Codex 2-pass cap with NEEDS_FIX still pending".
+
+**Step C — Fix ALL issues:** Read the round file, apply each edit to the Haskell source, recompile, then back to Step A with N+1.
+
+**Step D — After loop ends:**
+
+    cp reviews/$TOPIC-haskell-codex-review-round-N.md reviews/$TOPIC-haskell-codex-review.md
+
+**GATE CHECK:**
+- At least 1 round file exists for this topic.
+- `reviews/$TOPIC-haskell-codex-review.md` exists, > 500 bytes, contains a VERDICT line.
 
 ### Phase 6 — Final Verification
 

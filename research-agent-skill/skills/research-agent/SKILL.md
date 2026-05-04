@@ -113,7 +113,7 @@ Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they 
 2. **Codex formatting check** — Every paper MUST be checked by `codex:rescue` after the review loop. Skipping this is a pipeline failure.
 3. **Codex website review** — The website MUST be reviewed by `codex:rescue` BEFORE Vercel deployment (Step 6d). Skipping this is a pipeline failure.
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
-5. **Review-fix loops** — After each Gemini review, you MUST fix critical/major issues and re-submit until the verdict is publishable (ACCEPT/MINOR REVISIONS) or 4 rounds are exhausted. After Codex review, max 2 fix iterations.
+5. **Review-fix loops** — Both reviewers iterate. **Gemini**: review → fix → re-review until VERDICT is ACCEPT or MINOR REVISIONS, or 4 rounds exhausted. **Codex**: review → fix → re-review until VERDICT is PASS, or 2 fix passes exhausted (3 total invocations). Each round writes its own `reviews/<topic>-review-round-N.md` (Gemini) or `reviews/<topic>-codex-review-round-N.md` (Codex). The final canonical review file is a copy of the last round. After Phase 3/4/5, the orchestrator runs a hard gate that respawns the worker if any review is missing/stub-only/non-iterating, and aborts the pipeline if the respawn still fails. Soft-fallback paths (`SKIPPED:` stub files, "run the loop yourself") have been removed.
 6. **Bypass permissions on every Agent spawn** — This pipeline runs unattended. Every `Agent` tool call MUST set `mode: "bypassPermissions"` so sub-agents never pause for permission prompts on Bash/Write/Edit/WebFetch. A single prompt stalls the whole run. See "Agent Spawning Rules" below.
 7. **Every URL in every Slack message MUST be wrapped in angle brackets** — Slack's mrkdwn auto-linker is greedy: a bare URL followed by `*bold*`, punctuation, or any non-whitespace character will pull that adjacent text into the link (observed: `https://github.com/org/repo *Social` rendered as a link to `…/repo *Social`, simultaneously breaking bold formatting). The only safe form is `<https://example.com>` (plain) or `<https://example.com|label>` (with display text). NEVER paste a raw URL into a Slack message. Applies to every `mcp__claude_ai_Slack__slack_send_message` call — worker completion, synthesis, Haskell, website deploy, final summary, and any error notifications.
 8. **Run `slack_lint_msg` before EVERY Slack send and `pipeline-validator` before the final Phase 8 Slack send.** The inline `slack_lint_msg` Bash function (defined above in "Slack Message Linter") gates every individual message — a single bare URL or unbalanced bold marker blocks the send. The `pipeline-validator` agent (definition: `agents/pipeline-validator.md`) gates the final summary by additionally validating OG image dimensions/std-dev, `.vercel-url` integrity, and required artifact presence. Both gates are MANDATORY — a FAIL means fix the issue and re-validate, never bypass.
@@ -272,36 +272,87 @@ MANDATORY CHECKLIST — Do NOT proceed to the next stage until each box is done:
 When complete, report: topic name, paper page count, whether Haskell code was created, PDF compilation status, Gemini review (rounds completed, final verdict), Codex issues (count found → count fixed).
 ```
 
-**MANDATORY — Post-Worker Review Verification:**
+**MANDATORY — Post-Worker Review Hard Gate:**
 
-After ALL workers complete, verify that reviews actually happened and reached a publishable verdict. Run this Bash command:
+After ALL workers complete, run the strict review gate below. This is a HARD GATE — if any check fails, the orchestrator must **respawn the worker** for that topic (not "inline the loop yourself" — that path was removed because it was also being skipped). If the respawn still fails the gate, **abort the pipeline** with a clear failure summary. Do NOT proceed to Phase 4 with missing/stub reviews.
 
-    echo "=== REVIEW VERIFICATION ==="
-    for topic in $TOPICS; do
-      if test -f reviews/$topic-review.md; then
-        size=$(wc -c < reviews/$topic-review.md)
-        verdict=$(tail -20 reviews/$topic-review.md | grep -i "VERDICT" | tail -1)
-        rounds=$(ls reviews/$topic-review-round-*.md 2>/dev/null | wc -l)
-        if [ "$size" -lt 100 ]; then
-          echo "FAIL: reviews/$topic-review.md too small ($size bytes) — review was likely skipped"
-        elif [ "$rounds" -eq 0 ]; then
-          echo "FAIL: No review round files — worker did not run iterative review loop"
-        else
-          echo "PASS: reviews/$topic-review.md ($size bytes, $rounds rounds) $verdict"
-        fi
-      else
-        echo "FAIL: reviews/$topic-review.md MISSING — worker skipped Gemini review entirely"
+Paste this gate function once, then call it per topic:
+
+```bash
+# Strict review gate — covers (a) missing files, (b) SKIPPED stubs,
+# (c) round-1-only with non-publishable verdict, (d) header-only Codex files.
+review_gate_check() {
+  local topic="$1"
+  local size csize rounds final_verdict
+
+  test -f "reviews/$topic-review-round-1.md" \
+    || { echo "FAIL ($topic): reviews/$topic-review-round-1.md MISSING — Gemini skipped entirely"; return 1; }
+  ! grep -q "^SKIPPED:" "reviews/$topic-review-round-1.md" \
+    || { echo "FAIL ($topic): round-1 file is a SKIPPED stub"; return 1; }
+  size=$(wc -c < "reviews/$topic-review-round-1.md")
+  [ "$size" -ge 500 ] \
+    || { echo "FAIL ($topic): round-1 only ${size}B — Gemini output not appended"; return 1; }
+
+  test -f "reviews/$topic-review.md" \
+    || { echo "FAIL ($topic): canonical reviews/$topic-review.md MISSING"; return 1; }
+  ! grep -q "^SKIPPED:" "reviews/$topic-review.md" \
+    || { echo "FAIL ($topic): canonical review is a SKIPPED stub"; return 1; }
+  grep -q "VERDICT:" "reviews/$topic-review.md" \
+    || { echo "FAIL ($topic): canonical review has no VERDICT line"; return 1; }
+
+  # (c) Verdict trajectory: final must be ACCEPT/MINOR, OR 4-round cap reached.
+  final_verdict=$(tail -20 "reviews/$topic-review.md" | grep -i "VERDICT" | tail -1)
+  rounds=$(ls reviews/$topic-review-round-*.md 2>/dev/null | wc -l | tr -d ' ')
+  case "$final_verdict" in
+    *ACCEPT*|*MINOR*) ;;
+    *)
+      if [ "$rounds" -lt 4 ]; then
+        echo "FAIL ($topic): final verdict='$final_verdict' but only $rounds round(s) — worker did not iterate"
+        return 1
       fi
-    done
+      ;;
+  esac
 
-If ANY review file is MISSING, too small, or has no round files, the worker skipped the review loop. You MUST run the full review loop for that topic yourself:
+  # (d) Codex canonical review must exist and be substantive.
+  test -f "reviews/$topic-codex-review.md" \
+    || { echo "FAIL ($topic): reviews/$topic-codex-review.md MISSING — Codex skipped entirely"; return 1; }
+  ! grep -q "^SKIPPED:" "reviews/$topic-codex-review.md" \
+    || { echo "FAIL ($topic): codex review is a SKIPPED stub"; return 1; }
+  csize=$(wc -c < "reviews/$topic-codex-review.md")
+  [ "$csize" -ge 500 ] \
+    || { echo "FAIL ($topic): codex review only ${csize}B — Codex output not appended"; return 1; }
+  grep -q "VERDICT:" "reviews/$topic-codex-review.md" \
+    || { echo "FAIL ($topic): codex review has no VERDICT line"; return 1; }
 
-1. Submit to Gemini with VERDICT prompt (see research-worker agent for exact command)
-2. Fix critical/major issues
-3. Re-submit until ACCEPT/MINOR REVISIONS or 4 rounds
-4. Copy final round to `reviews/$TOPIC-review.md`
+  echo "PASS ($topic): Gemini=$rounds round(s) verdict='$final_verdict', Codex=${csize}B"
+  return 0
+}
 
-Do NOT proceed to Phase 4 until ALL reviews pass verification.
+echo "=== POST-WORKER REVIEW GATE ==="
+gate_fail_topics=()
+for topic in $TOPICS; do
+  review_gate_check "$topic" || gate_fail_topics+=("$topic")
+done
+echo "=== GATE SUMMARY ==="
+echo "Failed topics: ${gate_fail_topics[*]:-none}"
+```
+
+**If any topic fails the gate**, do exactly this — no shortcuts:
+
+1. **Respawn the research-worker for that topic** with `mode: "bypassPermissions"` and this corrective prompt prefix:
+
+   > Your previous run skipped the mandatory review stages. Review files are missing, stub-only, or did not iterate to a publishable verdict. **Re-run starting at Stage 3 (Gemini Review-Fix Loop) and continuing through Stage 5 (Codex Formatting Review-Fix Loop).** Do NOT redo Stages 1–2 — the LaTeX source already exists. Both Gemini and Codex stages are MANDATORY and must produce real review files with VERDICT lines.
+
+2. **Re-run `review_gate_check "$topic"` after the respawn.**
+3. **If it still fails after the respawn**, abort the pipeline:
+
+   ```bash
+   echo "FATAL: review gate still failing for: ${gate_fail_topics[*]}"
+   echo "Pipeline aborted at Phase 3 — cannot proceed to synthesis with un-reviewed papers."
+   exit 1
+   ```
+
+The "run the review loop yourself" fallback that lived here previously was removed because it was being skipped just as often as the worker's own loop. Respawning the worker (which has the loop logic) is the correct correction; aborting on second failure prevents the pipeline from shipping un-reviewed papers.
 
 **MANDATORY — Slack notification per completed topic:**
 
@@ -350,11 +401,25 @@ Topics: $TOPICS (all of them)
 Author block same as worker papers.
 ```
 
-**MANDATORY — Synthesis checkpoint before proceeding:**
+**MANDATORY — Synthesis Review Hard Gate:**
+
+After the synthesis-agent returns, run the same review gate semantics with `synthesis` as the topic. The `review_gate_check` function defined in Phase 3 works as-is — call it with `"synthesis"`:
+
+```bash
+echo "=== POST-SYNTHESIS REVIEW GATE ==="
+review_gate_check "synthesis" || {
+  echo "Synthesis review gate FAILED — respawning synthesis-agent with corrective prompt..."
+  # Respawn synthesis-agent with this prefix, then re-run the gate.
+  # If it fails twice, abort:
+  #   echo "FATAL: synthesis review gate still failing"; exit 1
+}
+```
+
+Respawn prompt prefix (same shape as the Phase 3 corrective prompt): *"Your previous run skipped the mandatory review stages for the synthesis paper. Re-run starting at step 5 (Gemini Review-Fix Loop) through step 7 (Codex Formatting Review-Fix Loop). Do NOT redo steps 1–4 — the LaTeX source already exists."* On second failure, `exit 1`.
+
+**Synthesis checkpoint before proceeding:**
 - [ ] papers/latex/synthesis.tex exists and is >=20 pages
-- [ ] reviews/synthesis-review.md exists with Gemini output
-- [ ] Review feedback addressed
-- [ ] Codex formatting check run and issues fixed
+- [ ] `review_gate_check "synthesis"` returns PASS
 - [ ] GrokRxiv sidebar added
 - [ ] papers/pdf/synthesis.pdf compiles cleanly
 - [ ] images/synthesis.png cover image generated
@@ -426,12 +491,42 @@ PHASE 6 — Final Verification:
 Report: compilation status, QuickCheck (N properties, all passed/failures), equational proofs (N checked/passed), Liquid Haskell (verified/skipped), Codex issues fixed.
 ```
 
-**MANDATORY — Haskell checkpoint before proceeding:**
+**MANDATORY — Haskell Codex Review Hard Gate:**
+
+After haskell-verifier agents complete, verify each topic's Haskell Codex review file passes the same substantive-content checks. Run this gate per topic:
+
+```bash
+haskell_review_gate() {
+  local topic="$1" csize
+  test -d "src/$topic" || { echo "SKIP ($topic): no src/$topic/ directory"; return 0; }
+  test -f "reviews/$topic-haskell-codex-review.md" \
+    || { echo "FAIL ($topic): reviews/$topic-haskell-codex-review.md MISSING — Codex skipped entirely"; return 1; }
+  ! grep -q "^SKIPPED:" "reviews/$topic-haskell-codex-review.md" \
+    || { echo "FAIL ($topic): haskell codex review is a SKIPPED stub"; return 1; }
+  csize=$(wc -c < "reviews/$topic-haskell-codex-review.md")
+  [ "$csize" -ge 500 ] \
+    || { echo "FAIL ($topic): haskell codex review only ${csize}B — Codex output not appended"; return 1; }
+  grep -q "VERDICT:" "reviews/$topic-haskell-codex-review.md" \
+    || { echo "FAIL ($topic): haskell codex review has no VERDICT line"; return 1; }
+  echo "PASS ($topic): haskell Codex=${csize}B"
+  return 0
+}
+
+echo "=== POST-HASKELL REVIEW GATE ==="
+hs_fail_topics=()
+for topic in $TOPICS; do
+  haskell_review_gate "$topic" || hs_fail_topics+=("$topic")
+done
+```
+
+**If any topic fails**, respawn the haskell-verifier for that topic with the corrective prompt: *"Your previous run skipped the mandatory Codex review (Phase 5). Re-run starting at Phase 5 (Codex Review-Fix Loop) and Phase 6 (Final Verification). Do NOT redo Phases 1–4 — Haskell source and proofs already exist."* Re-run the gate; on second failure, `exit 1`.
+
+**Haskell checkpoint before proceeding:**
 - [ ] All src/$TOPIC/ directories compile with `-Wall -Wextra -Werror` and zero warnings
 - [ ] Properties.hs exists with QuickCheck properties for major theorems — all pass
 - [ ] Proofs.hs exists with equational reasoning proofs — all executable checks pass
 - [ ] Main.hs exits 0 (all verifications pass)
-- [ ] Codex review completed, issues fixed
+- [ ] `haskell_review_gate $topic` returns PASS for every topic with Haskell source
 
 **MANDATORY — Slack notification on Haskell verification completion** using `mcp__claude_ai_Slack__slack_send_message` to `$SLACK_CHANNEL`:
 ```
