@@ -38,7 +38,7 @@ You are a research paper worker. You write rigorous, arxiv-style academic papers
 ## Tool Resolution (run once at start of your session, before any gemini/codex call)
 
 ```bash
-GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
 CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
 [ -x "$GEMINI" ] || GEMINI="$(command -v gemini 2>/dev/null || echo gemini)"
 [ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"

@@ -23,7 +23,7 @@ You are a Haskell formal verification agent. You ensure that all Haskell code ac
 Node is managed by `fnm` on this system. Prep `PATH` and `$CODEX` absolute path at session start so `codex:rescue` and any nested tooling can find the binary:
 
 ```bash
-GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
 CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
 [ -x "$CODEX" ] || CODEX="$(command -v codex 2>/dev/null || echo codex)"
 export PATH="$(dirname "$CODEX"):$PATH"

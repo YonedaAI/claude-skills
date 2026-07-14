@@ -1,7 +1,7 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.1.0
+version: 0.7.9
 ---
 
 # Research Agent Pipeline — Orchestration
@@ -36,7 +36,7 @@ Read these at the start of execution. All have sensible defaults — none are re
 | `RESEARCH_GEMINI_MODEL` | `gemini-3.1-pro` | Gemini model for peer review |
 | `RESEARCH_WORKER_MODEL` | `opus` | Model for research-worker and synthesis agents |
 | `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
-| `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini` | Absolute path to the `gemini` CLI. Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. |
+| `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | Peer-review CLI: the `agy` (Antigravity) shim `agy-review-shim` (routes review calls to agy, model "Gemini 3.1 Pro (High)"). Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. |
 | `RESEARCH_CODEX_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex` | Absolute path to the `codex` CLI. Same fnm reasoning — agents and the `codex:rescue` skill can't find `codex` on a raw `$PATH`. |
 | `RESEARCH_GIT_AUTHOR` | `Matthew <mlong@magneton.io>` | Git author for every commit the pipeline makes (RFC 2822 `Name <email>` form). Parsed into `RESEARCH_GIT_AUTHOR_NAME` and `RESEARCH_GIT_AUTHOR_EMAIL` by the resolver below. |
 | `RESEARCH_GIT_AUTHOR_NAME` | `Matthew` | Override the parsed name. Takes precedence over `RESEARCH_GIT_AUTHOR` if set. |
@@ -48,7 +48,7 @@ Node is managed via `fnm`, so `gemini` and `codex` are not on the default `PATH`
 
 ```bash
 # Resolve gemini + codex to absolute paths (fnm shims aren't active in agent subshells)
-GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/gemini}"
+GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
 CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
 [ -x "$GEMINI" ] || GEMINI="$(command -v gemini 2>/dev/null || echo gemini)"
 [ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"

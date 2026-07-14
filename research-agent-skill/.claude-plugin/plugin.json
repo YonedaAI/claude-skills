@@ -1,6 +1,6 @@
 {
   "name": "research-agent",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "Multi-agent research pipeline: parallel research workers with Gemini peer review, Codex formatting, Haskell verification, Vercel website deployment, social posts, and Slack notifications.",
   "author": {
     "name": "YonedaAI Research Collective",
