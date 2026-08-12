@@ -100,6 +100,21 @@ If `"$GEMINI"` is not executable (`[ -x "$GEMINI" ]` fails AND `command -v gemin
 
 Before declaring `gemini` missing, verify the resolver ran: `echo "$GEMINI"` should print an absolute path under the fnm node-versions tree. If it prints empty or just `gemini`, re-run the resolver block above. Only `exit 1` after the resolver has been re-checked. The orchestrator will catch the non-zero exit and abort the pipeline.
 
+**Step A2 — Validate the review output (MANDATORY — a written file is not a valid review):**
+
+The reviewer backend has three known failure modes observed in production: (1) a model banner ("I am currently running on ...") with no review, (2) cached output from an unrelated prior task, (3) truncated/near-empty output. The shim validates and retries once internally, and exits non-zero if it still cannot get a usable review. After Step A, run:
+
+```bash
+R=reviews/$TOPIC-review-round-N.md
+grep -qi "VERDICT" "$R" && [ "$(wc -c < "$R")" -ge 700 ] && ! grep -qi "currently running on" "$R" \
+  && grep -qi "$TOPIC\|abstract\|section" "$R" \
+  || echo "INVALID REVIEW — do not proceed to Step B"
+```
+
+If the review is INVALID, or the Step A command itself exited non-zero: re-run Step A once. If it fails again, **fall back to a subagent referee** — use the Task/Agent tool to spawn a `general-purpose` subagent prompted as a hostile external referee for the paper's field, pass it the full paper source inline, require the same severity-structured output ending in a VERDICT line, write its review into the same `reviews/` file, and set `reviewer: subagent-referee-fallback` in the file's frontmatter so provenance is recorded. The fallback is still an EXTERNAL review — you still may NOT self-review, and you may NOT write a stub/SKIPPED file.
+
+For reference, the known-good direct invocation of the underlying reviewer is `agy -p "<prompt with full paper source inlined>" --effort high` — passing a file path does not work (print mode does not read files), and reusing a warm session can return stale output (use `--new-project` when retrying).
+
 **Step B — Check verdict:**
 
     tail -20 reviews/$TOPIC-review-round-N.md | grep -i "VERDICT"

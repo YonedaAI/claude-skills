@@ -68,6 +68,8 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
 
    If `"$GEMINI"` is not executable, hard-fail. Do NOT write a `SKIPPED:` stub — that path was removed because it caused silent skipping.
 
+   **Step A2 — Validate the review output:** the reviewer backend can return a model banner, cached output from an unrelated task, or truncated output instead of a review (all observed in production; the shim retries once with `--new-project` and exits non-zero if still unusable). Check the round file: it must contain a VERDICT line, be at least 700 bytes, not contain "currently running on", and actually discuss the synthesis paper. If invalid or the command exited non-zero: re-run Step A once; if it fails again, spawn a `general-purpose` subagent as a hostile external referee (full paper source inline, same severity-structured output with a VERDICT line), write its review into the same round file, and set `reviewer: subagent-referee-fallback` in the frontmatter. Never self-review, never fabricate a review. Known-good direct invocation of the underlying reviewer: `agy -p "<prompt with full source inlined>" --effort high` (file paths are not read in print mode; use `--new-project` on retries to avoid stale sessions).
+
    ```bash
    [ -x "$GEMINI" ] || { echo "FATAL: gemini CLI not available at $GEMINI — cannot run mandatory peer review"; exit 1; }
    ```
