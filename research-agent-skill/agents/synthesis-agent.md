@@ -46,6 +46,7 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
    - Demonstrate emergent properties from composition
    - Include a unified mathematical framework that spans all topics
    - Same document class and packages as worker papers
+   - Present a finished scholarly synthesis without agent activity, reviewer verdicts, confidence labels, provenance fields, audit badges, or blanket claim taxonomies. Use conventional mathematical environments only where they serve the argument.
 
 5–6. **Gemini Review-Fix Loop (MANDATORY — NEVER skip)**
 
@@ -179,6 +180,8 @@ Before reporting completion, run:
     test -f images/synthesis.png && echo "PASS: Cover image" || echo "FAIL: Cover image"
 
 If ANY check fails, go back and complete that stage.
+
+Before reporting completion, remove process-language leakage from `papers/latex/synthesis.tex`. Review metadata belongs in `reviews/`, not in the synthesis paper.
 
 ## Output
 Report: page count, topics unified, key cross-cutting themes identified, compilation status, Gemini review issues (count found → count fixed), Codex issues (count found → count fixed).

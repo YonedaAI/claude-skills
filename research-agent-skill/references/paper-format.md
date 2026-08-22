@@ -111,6 +111,8 @@ rm -f *.aux *.log *.toc *.out *.bbl *.blg *.nav *.snm *.vrb *.fls *.fdb_latexmk 
 - [ ] All theorems have proofs or proof sketches
 - [ ] Formal definitions before first use
 - [ ] Consistent notation throughout
+- [ ] No agent activity, reviewer verdicts, confidence labels, provenance fields, audit badges, or internal claim taxonomies in the paper
+- [ ] Unsupported claims were proved, cited, narrowed, revised, or removed rather than preserved with a process label
 - [ ] No undefined references or citations
 - [ ] GrokRxiv sidebar present on page 1
 - [ ] Compiles without errors

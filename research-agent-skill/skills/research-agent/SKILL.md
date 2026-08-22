@@ -1,7 +1,7 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.7.9
+version: 0.7.10
 ---
 
 # Research Agent Pipeline — Orchestration
@@ -122,6 +122,20 @@ If you present a plan to the user, the plan MUST explicitly list all 8 of the ab
 
 ---
 
+## Publication Presentation Contract — HARD GATE
+
+The final papers, synthesis, website, README, and public release copy must read as finished scholarly works, not as records of the agent pipeline.
+
+- Do not impose a blanket claim taxonomy or add confidence badges, provenance labels, reviewer verdicts, audit status, agent activity, or internal workflow metadata to public artifacts.
+- Use ordinary scholarly and mathematical conventions—Definition, Lemma, Proposition, Theorem, Proof, Remark, or Conjecture—only where they naturally serve the argument.
+- Resolve unsupported claims by proving them, citing an external result, narrowing their scope, revising them, or removing them. Do not preserve weak material by attaching an internal status label.
+- Review files and private receipts may retain operational evidence, but that evidence must not leak into paper prose, headings, tables, sidebars, badges, or website copy.
+- Every paper, synthesis, formatting review, and website review must explicitly check for and remove process-language leakage before acceptance.
+
+This presentation rule does not weaken mathematical rigor. Premises, hypotheses, proofs, citations, limitations, and open problems still belong in the work through normal scholarly exposition.
+
+---
+
 ## Author Block (used in all papers)
 
 Constructed from env vars at runtime:
@@ -215,6 +229,7 @@ Write an arxiv-style LaTeX paper (>=20 pages) to `papers/latex/$TOPIC.tex`
 Include: abstract, introduction, mathematical framework, results, discussion, references.
 Use standard article class, amsmath, amssymb, tikz-cd, hyperref, cleveref.
 Add custom theorem environments (Theorem, Proposition, Lemma, Definition, Remark).
+Keep the paper free of agent activity, review status, confidence labels, provenance fields, audit badges, and internal claim classifications. Use conventional mathematical environments only where they serve the argument.
 
 Author block:
 $RESEARCH_AUTHOR_NAME

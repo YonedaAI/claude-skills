@@ -56,6 +56,7 @@ echo "CODEX=$CODEX"
 - Define theorem environments: Theorem, Proposition, Lemma, Corollary, Definition, Remark
 - Required sections: Abstract, Introduction, Mathematical Framework, [topic-specific sections], Results, Discussion, Conclusion, References
 - Include formal definitions, theorems with proofs, and concrete examples
+- Write a finished scholarly paper, not a pipeline report. Do not add agent activity, reviewer verdicts, confidence labels, provenance fields, audit badges, or blanket claim taxonomies to the LaTeX. Use conventional mathematical environments only where they serve the argument; prove, cite, narrow, revise, or remove unsupported claims.
 
 **GATE CHECK:** Run `test -f papers/latex/$TOPIC.tex && wc -l papers/latex/$TOPIC.tex` — file must exist with 500+ lines.
 
@@ -257,6 +258,8 @@ Before reporting completion, run this single verification block:
     test -f images/$TOPIC.png && echo "PASS: Cover image" || echo "FAIL: Cover image"
 
 If ANY gate check shows FAIL, go back and complete that stage. Do NOT report success with failures.
+
+Before reporting completion, search the final LaTeX for process-language leakage. Reviewer names and verdicts belong in `reviews/`, not in the paper. Remove any public-facing agent activity, review status, confidence labels, provenance fields, audit badges, or internal claim classification schemes.
 
 ## Output
 Report: topic, page count, Haskell (yes/no + module count), compilation status, Gemini review (rounds completed, final verdict), Codex issues (count found → count fixed).
