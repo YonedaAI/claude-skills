@@ -20,7 +20,7 @@ description: |
   Workers run independently and in parallel after the knowledge base is built.
   </commentary>
   </example>
-model: fable
+model: opus
 color: blue
 tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "WebSearch", "WebFetch"]
 ---

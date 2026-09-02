@@ -629,3 +629,60 @@ When forced to choose between:
     sounding academic and thinking rigorously,
 
 think rigorously.
+
+
+======================================================================
+APPENDIX A. HOW THIS PIPELINE ENFORCES THE STANDARD (added by the plugin, not part of the author's text)
+======================================================================
+
+1. Every drafting or editing agent reads sections I to XVIII before writing a line.
+2. Section XVI (the anti-slop edit) runs on the whole paper before every external review round
+   and again before the final compile. Section XVII (adversarial review) is applied to every
+   important claim before the first review round.
+3. Mechanical checks, all of which must pass before the final compile:
+   - the filler and formulaic-phrase grep in style-standard.md (section II phrases, "clearly",
+     "it follows immediately", enumerated "First, Second, Third" openers);
+   - the format check in paper-format.md (11pt article, one-inch margins, one-paragraph abstract
+     of 150 to 250 words with no citations, plain headings, no oversized sidebar);
+   - the humanizer grep in team-protocol.md when --human-readable is on;
+   - a grep for the section VI markers [SOURCE REQUIRED] and [VERIFY VALUE], which must be empty.
+4. External review prompts ask the reviewer to quote the three weakest paragraphs and rewrite
+   one as a model, so review feedback is concrete.
+5. A claim ledger (one row per load-bearing factual claim: verbatim sentence, source, exact
+   location, excerpt of at most 25 words) is checked row by row against the primary source by an
+   integration reviewer; PARTIAL and NO rows are narrowed, re-sourced, or removed.
+6. Bibliography entries with an arXiv id, DOI, or URL are resolved before the first review round;
+   unresolvable entries are removed or replaced.
+
+
+======================================================================
+APPENDIX B. HOUSE RULES NOT COVERED ABOVE (added by the plugin)
+======================================================================
+
+Titles. A title is a noun phrase of two to six words in Title Case that a working scholar would
+put on a paper. No colon followed by a list, no question, no subtitle that summarizes the
+argument. In a series, the series line ("Part N of <Series Title>") is the only subtitle.
+
+Headings. A heading names its subject in one to seven words, sentence case. Not a clause, not a
+comma with a tail (", stated once"), not a count ("Three consequences ..."), not a question, not
+a verdict ("Benchmarks cannot carry the argument"), not a "what", "why", or "where" phrase.
+
+Table cells. A cell is a phrase a reader can say aloud. Telegraphic fragments joined by
+semicolons are notes, not prose, and hyphenate badly in narrow columns: widen the column, shorten
+the phrase, or move the content to prose.
+
+Absence of evidence. Say it once and plainly: "We found no documented case of X in the sources
+reviewed (cutoff <date>)." Never in procedural language ("under the documented search strategy").
+
+Numbers. Every number carries its denominator, window, unit, and source. Vendor figures are
+labeled as vendor figures. A figure that appears only in a press release or a blog is cited to
+that document, not to a paper that does not contain it.
+
+Hedging. State each claim at exactly the strength the evidence supports, once. Do not stack
+hedges ("may perhaps suggest"), and do not hedge a claim that the evidence establishes.
+
+First-party material. When the author wrote the systems under study, say so in one sentence
+where the systems are introduced, and never present first-party terminology as industry
+consensus.
+
+Series title. A series title is a proper name and keeps its capitalization everywhere.

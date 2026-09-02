@@ -11,7 +11,7 @@ description: |
   Synthesis depends on all workers completing first. It reads all papers and creates a meta-analysis.
   </commentary>
   </example>
-model: fable
+model: opus
 color: green
 tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 ---

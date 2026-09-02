@@ -1,7 +1,7 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.7.15
+version: 0.7.16
 ---
 
 # Research Agent Pipeline — Orchestration
@@ -40,7 +40,7 @@ Read these at the start of execution. All have sensible defaults — none are re
 | `RESEARCH_GITHUB_ORG` | `YonedaAI` | GitHub organization for repo creation |
 | `RESEARCH_SLACK_CHANNEL` | `C0AK269AVSA` | Slack channel ID for notifications |
 | `RESEARCH_GEMINI_MODEL` | `gemini-3.1-pro` | Gemini model for peer review |
-| `RESEARCH_WORKER_MODEL` | `fable` | Model for research-worker and synthesis agents (Claude Fable 5.1; Opus produced prose the house style rejects) |
+| `RESEARCH_WORKER_MODEL` | `opus` | Model for research-worker and synthesis agents (Opus 5; prose quality is enforced by references/writing-standard.md and its checks, not by the model choice) |
 | `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
 | `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | Peer-review CLI: the `agy` (Antigravity) shim `agy-review-shim` (routes review calls to agy, model "Gemini 3.1 Pro (High)"). Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. The shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set (agy >= 1.1.23 rejects `--effort` for models whose name already carries effort) and logs stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`. |
 | `AGY_REVIEW_EFFORT` | *(unset)* | Only set this when `AGY_REVIEW_MODEL` names a model WITHOUT an effort suffix. Leave unset for "Gemini 3.1 Pro (High)" — agy 1.1.23+ exits with a flag error otherwise and the review comes back empty. |
