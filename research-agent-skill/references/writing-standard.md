@@ -170,6 +170,13 @@ At all times distinguish among:
 
 Do not silently move from one category to another.
 
+Do not demote the manuscript's central claim into a hypothesis merely to
+perform caution. A paper may defend a central claim directly while making its
+scope, mechanism, evidence, and governance conditions testable. Report adverse
+results accurately, but do not describe evidence about cost, task boundaries,
+or implementation quality as refuting the central claim unless it logically
+does so.
+
 For every important claim ask:
 
 1. What exactly is being claimed?
