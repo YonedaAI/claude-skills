@@ -25,14 +25,29 @@ Node is managed by `fnm` on this system — shims are not active in non-interact
 ```bash
 GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
 CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
-[ -x "$GEMINI" ] || GEMINI="$(command -v gemini 2>/dev/null || echo gemini)"
+# No fallback to the deprecated `gemini` CLI (exits "This client is no longer supported") — hard-fail instead.
+[ -x "$GEMINI" ] || { echo "FATAL: reviewer shim not executable at $GEMINI — see ${TMPDIR:-/tmp}/agy-review-shim.err"; exit 1; }
 [ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"
-export PATH="$(dirname "$GEMINI"):$PATH"
+export PATH="$(dirname "$CODEX"):$(dirname "$GEMINI"):$PATH"
+PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
+export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}"
+export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-high}"
 echo "GEMINI=$GEMINI"
 echo "CODEX=$CODEX"
 ```
 
-Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `gemini` / `codex`.
+Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `gemini` / `codex`. The shim logs agy's stderr to `${TMPDIR:-/tmp}/agy-review-shim.err` — read it first when a review comes back empty (agy 1.1.23+ rejects `--effort` for "Gemini 3.1 Pro (High)"; the shim only passes it when `AGY_REVIEW_EFFORT` is set, so leave that unset).
+
+**You have no `Skill` tool and no `Agent` tool.** `codex:rescue` cannot be invoked from this agent and you cannot spawn a referee — run the direct commands below and use the BLOCKED fallback.
+
+**Reviewer mutex — wrap every single `"$GEMINI"` / `"$CODEX"` call** (concurrent calls return empty output; hold the lock for one call only, never while editing):
+
+```bash
+LOCK="$PROJECT_ROOT/.review.lock"
+until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+... one reviewer call ...
+rmdir "$LOCK" 2>/dev/null; trap - EXIT
+```
 
 ## Process
 
@@ -56,20 +71,33 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
 
    #### Round N (repeat until publishable or round 4):
 
-   **Step A — Submit to Gemini:**
+   **Step A — Submit to Gemini (under the mutex):**
 
-       echo "---" > reviews/synthesis-review-round-N.md
-       echo "reviewer: $RESEARCH_GEMINI_MODEL" >> reviews/synthesis-review-round-N.md
-       echo "paper: synthesis" >> reviews/synthesis-review-round-N.md
-       echo "round: N" >> reviews/synthesis-review-round-N.md
-       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-review-round-N.md
-       echo "---" >> reviews/synthesis-review-round-N.md
-       echo "" >> reviews/synthesis-review-round-N.md
-       cat papers/latex/synthesis.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> reviews/synthesis-review-round-N.md
+       R=reviews/synthesis-review-round-N.md
+       echo "---" > "$R"
+       echo "reviewer: $RESEARCH_GEMINI_MODEL" >> "$R"
+       echo "paper: synthesis" >> "$R"
+       echo "round: N" >> "$R"
+       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$R"
+       echo "---" >> "$R"
+       echo "" >> "$R"
+       LOCK="$PROJECT_ROOT/.review.lock"
+       until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+       cat papers/latex/synthesis.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
+       rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
-   If `"$GEMINI"` is not executable, hard-fail. Do NOT write a `SKIPPED:` stub — that path was removed because it caused silent skipping.
+   If `"$GEMINI"` is not executable, hard-fail. Do NOT write a `SKIPPED:` stub — that path was removed because it caused silent skipping. Do NOT fall back to the plain `gemini` CLI (deprecated).
 
-   **Step A2 — Validate the review output:** the reviewer backend can return a model banner, cached output from an unrelated task, or truncated output instead of a review (all observed in production; the shim retries once with `--new-project` and exits non-zero if still unusable). Check the round file: it must contain a VERDICT line, be at least 700 bytes, not contain "currently running on", and actually discuss the synthesis paper. If invalid or the command exited non-zero: re-run Step A once; if it fails again, spawn an external referee through your runtime's delegation mechanism (Claude Code: a `general-purpose` subagent via the Agent/Task tool; Codex: `spawn_agent` per `CODEX.md`; other harnesses: their delegation primitive — hard-fail if none exists), full paper source inline, same severity-structured output with a VERDICT line, write its review into the same round file, and set `reviewer: subagent-referee-fallback` in the frontmatter. Never self-review, never fabricate a review. Known-good direct invocation of the underlying reviewer: `agy -p "<prompt with full source inlined>" --effort high` (file paths are not read in print mode; use `--new-project` on retries to avoid stale sessions).
+   **Step A2 — Validate the review output:** the reviewer backend can return a model banner, cached output from an unrelated task, or truncated output instead of a review (all observed in production; the shim retries once with `--new-project` and exits non-zero if still unusable). Check the round file: it must contain a VERDICT line, be at least 700 bytes, not contain "currently running on", and actually discuss the synthesis paper. If invalid or the command exited non-zero: read `${TMPDIR:-/tmp}/agy-review-shim.err`, then re-run Step A once. If it fails again, **you cannot spawn a referee (no Agent tool)** — append a BLOCKED line and exit non-zero so the orchestrator runs the external referee:
+
+   ```bash
+   MSG="BLOCKED $(date -u +%Y-%m-%dT%H:%M:%SZ) synthesis stage=review round=N reason=\"reviewer failed twice: $(tail -1 "${TMPDIR:-/tmp}/agy-review-shim.err" 2>/dev/null | cut -c1-160)\""
+   if [ -f team/board.md ]; then echo "$MSG" >> team/board.md; else echo "$MSG"; fi
+   rmdir "$PROJECT_ROOT/.review.lock" 2>/dev/null
+   exit 1
+   ```
+
+   Never self-review, never fabricate a review, never write a stub file. Known-good direct invocation of the underlying reviewer: `agy -p "<prompt with full source inlined>" --model "Gemini 3.1 Pro (High)"` with no `--effort` flag (file paths are not read in print mode; use `--new-project` on retries to avoid stale sessions).
 
    ```bash
    [ -x "$GEMINI" ] || { echo "FATAL: gemini CLI not available at $GEMINI — cannot run mandatory peer review"; exit 1; }
@@ -103,27 +131,28 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
 
 7. **Codex Formatting Review-Fix Loop (MANDATORY — NEVER skip)**
 
-   **YOU MUST INVOKE THE `codex:rescue` SKILL. DO NOT CHECK FORMATTING YOURSELF.**
+   **YOU MUST RUN THE DIRECT `"$CODEX" exec` COMMAND BELOW. DO NOT CHECK FORMATTING YOURSELF.** (`codex:rescue` is a Skill and this agent has no Skill tool.)
 
-   Iterative loop mirroring the Gemini stage: invoke Codex → fix → re-invoke Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (so up to 3 Codex invocations).
+   Iterative loop mirroring the Gemini stage: run Codex → fix → re-run Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (so up to 3 Codex invocations).
 
    #### Round N (N = 1, 2, 3):
 
-   **Step A — Invoke `codex:rescue` and save to round file:**
+   **Step A — Run Codex (under the mutex) and save to round file** (replace `N` with the round number):
 
-   Invoke `codex:rescue` with: "Review papers/latex/synthesis.tex for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX."
+       ROUND_FILE=reviews/synthesis-codex-review-round-N.md
+       echo "---" > "$ROUND_FILE"
+       echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" >> "$ROUND_FILE"
+       echo "type: formatting" >> "$ROUND_FILE"
+       echo "paper: synthesis" >> "$ROUND_FILE"
+       echo "round: N" >> "$ROUND_FILE"
+       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
+       echo "---" >> "$ROUND_FILE"
+       LOCK="$PROJECT_ROOT/.review.lock"
+       until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+       timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/synthesis.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
+       rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
-   Save the Codex output (replace `N` with the round number):
-
-       echo "---" > reviews/synthesis-codex-review-round-N.md
-       echo "reviewer: codex (OpenAI)" >> reviews/synthesis-codex-review-round-N.md
-       echo "type: formatting" >> reviews/synthesis-codex-review-round-N.md
-       echo "paper: synthesis" >> reviews/synthesis-codex-review-round-N.md
-       echo "round: N" >> reviews/synthesis-codex-review-round-N.md
-       echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/synthesis-codex-review-round-N.md
-       echo "---" >> reviews/synthesis-codex-review-round-N.md
-
-   Append Codex output.
+   Gotchas: `</dev/null` is mandatory (otherwise Codex hangs on "Reading additional input from stdin"); `-s read-only` keeps Codex from editing the paper (you apply fixes in Step C); `--skip-git-repo-check` is needed outside a git repo; keep the prompt concise and name the single file or Codex explores the whole repository and the round file balloons.
 
    If `"$CODEX"` is not executable, hard-fail:
 

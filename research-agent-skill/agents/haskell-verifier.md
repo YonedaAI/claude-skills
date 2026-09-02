@@ -20,14 +20,19 @@ You are a Haskell formal verification agent. You ensure that all Haskell code ac
 
 ## Tool Resolution (run FIRST before Phase 5 / any codex call)
 
-Node is managed by `fnm` on this system. Prep `PATH` and `$CODEX` absolute path at session start so `codex:rescue` and any nested tooling can find the binary:
+Node is managed by `fnm` on this system. Prep `PATH` and `$CODEX` absolute path at session start so the direct `"$CODEX" exec` command and any nested tooling can find the binary:
 
 ```bash
 GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
 CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
 [ -x "$CODEX" ] || CODEX="$(command -v codex 2>/dev/null || echo codex)"
 export PATH="$(dirname "$CODEX"):$PATH"
+PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
+export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}"
+export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-high}"
 ```
+
+**You have no `Skill` tool** — `codex:rescue` cannot be invoked from this agent. Run the direct command in Phase 5. **Every `"$CODEX"` call holds the project mutex** `$PROJECT_ROOT/.review.lock` (concurrent codex/agy calls from parallel agents return empty output); hold it for one call only, never while you edit code.
 
 ## Verification Philosophy
 
@@ -158,29 +163,29 @@ If Liquid Haskell is NOT available, skip this phase but note it in the report. D
 
 ### Phase 5 — Codex Review-Fix Loop (MANDATORY — NEVER skip)
 
-**YOU MUST INVOKE THE `codex:rescue` SKILL. DO NOT REVIEW THE CODE YOURSELF.**
+**YOU MUST RUN THE DIRECT `"$CODEX" exec` COMMAND BELOW. DO NOT REVIEW THE CODE YOURSELF.** (`codex:rescue` is a Skill; this agent has no Skill tool.)
 
-Iterative loop: invoke Codex → fix → re-invoke Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (up to 3 invocations).
+Iterative loop: run Codex → fix → re-run Codex → if still NEEDS_FIX, fix again → done. **Maximum 2 fix passes** (up to 3 invocations).
 
 #### Round N (N = 1, 2, 3):
 
-**Step A — Invoke `codex:rescue` and save to round file:**
-
-Invoke `codex:rescue` with:
-"Review Haskell code in src/$TOPIC/ for: type safety, missing type signatures, incomplete patterns, code quality, idiomatic style, correctness of QuickCheck properties, soundness of equational proofs. List issues with file:line references and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX."
-
-Save the Codex output (replace `N` with the round number):
+**Step A — Run Codex (under the mutex) and save to round file** (replace `N` with the round number):
 
     mkdir -p reviews
-    echo "---" > reviews/$TOPIC-haskell-codex-review-round-N.md
-    echo "reviewer: codex (OpenAI)" >> reviews/$TOPIC-haskell-codex-review-round-N.md
-    echo "type: haskell" >> reviews/$TOPIC-haskell-codex-review-round-N.md
-    echo "topic: $TOPIC" >> reviews/$TOPIC-haskell-codex-review-round-N.md
-    echo "round: N" >> reviews/$TOPIC-haskell-codex-review-round-N.md
-    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> reviews/$TOPIC-haskell-codex-review-round-N.md
-    echo "---" >> reviews/$TOPIC-haskell-codex-review-round-N.md
+    ROUND_FILE=reviews/$TOPIC-haskell-codex-review-round-N.md
+    echo "---" > "$ROUND_FILE"
+    echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" >> "$ROUND_FILE"
+    echo "type: haskell" >> "$ROUND_FILE"
+    echo "topic: $TOPIC" >> "$ROUND_FILE"
+    echo "round: N" >> "$ROUND_FILE"
+    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
+    echo "---" >> "$ROUND_FILE"
+    LOCK="$PROJECT_ROOT/.review.lock"
+    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the Haskell files in src/$TOPIC/ (do not explore other directories). Review them for: type safety, missing type signatures, incomplete patterns, code quality, idiomatic style, correctness of QuickCheck properties, soundness of equational proofs. List issues with file:line references and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
+    rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
-Append Codex output.
+Gotchas: `</dev/null` is mandatory (otherwise Codex hangs on "Reading additional input from stdin"); `-s read-only` keeps Codex from editing the sources (you apply fixes in Step C); `--skip-git-repo-check` is needed outside a git repo; keep the prompt concise and scoped to `src/$TOPIC/` or Codex explores the whole repository and the round file balloons.
 
 If `"$CODEX"` is not executable, hard-fail:
 

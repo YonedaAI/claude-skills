@@ -413,6 +413,14 @@ Generate this file during the pipeline to list all papers:
 ```bash
 cd website
 npm run build        # Generates static export in out/
-npx vercel --prod --yes 2>&1 | tee /tmp/vercel-deploy.log
-# Extract URL from output: grep for "Production:" or "https://"
+npx vercel project add "$VERCEL_PROJECT" 2>/dev/null || true
+npx vercel link --yes --project "$VERCEL_PROJECT"
+# New projects: framework None + SSO protection — PATCH before deploying (see SKILL.md Step 6e)
+curl -sS -X PATCH "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}?teamId=${VERCEL_ORG_ID}" \
+  -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"framework":"nextjs","ssoProtection":null}'
+npx vercel pull --yes --environment=production
+npx vercel build --prod
+npx vercel deploy --prebuilt --prod 2>&1 | tee /tmp/vercel-deploy.log
+# Clean alias: https://<project>.vercel.app — extract the URL from the log, never guess it
 ```

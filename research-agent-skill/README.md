@@ -20,6 +20,13 @@ A Claude Code plugin that orchestrates a multi-agent research pipeline. Takes co
 | `--no-website` | Skip website build + Vercel deploy | Enabled |
 | `--no-social` | Skip social media posts | Enabled |
 | `--slack-channel <ID>` | Slack channel for notifications | `$RESEARCH_SLACK_CHANNEL` or `C0AK269AVSA` |
+| `--multi-agent-team` | Workers share interface contracts + a team board, integration gate before synthesis | Off |
+| `--human-readable` | Humanizer writing rules + grep checks before final compile | Off |
+| `--code-audit` | Codex read-only audit of the code evidence appendix (every row must be SUPPORTS) | Off |
+| `--bib-gate` | Resolve every arXiv/DOI/URL bibliography entry before final compile | Off |
+| `--plan-critique` | Codex critique of the plan before Phase 2 (max 3 rounds) | Off |
+| `--codex-model <m>` | Model for direct `codex exec` calls (`RESEARCH_CODEX_MODEL`) | `gpt-5.6-sol` |
+| `--codex-effort <e>` | Reasoning effort for `codex exec` (`RESEARCH_CODEX_EFFORT`) | `high` |
 
 ## Pipeline
 
@@ -63,8 +70,10 @@ Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Ve
 
 Every paper goes through two mandatory, externally-enforced review cycles:
 
-1. **Gemini peer review** via CLI (model is `$RESEARCH_GEMINI_MODEL`, default `gemini-3.1-pro`) — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the `gemini` CLI command and write the output to disk. Gate checks verify the review file exists and has substantive content (>100 bytes).
-2. **Codex formatting check** — LaTeX compilation, references, styling issues. Each worker MUST invoke the `codex:rescue` skill (not self-check formatting).
+1. **Gemini peer review** via the `agy-review-shim` (`$RESEARCH_GEMINI_BIN`; model label `$RESEARCH_GEMINI_MODEL`, default `gemini-3.1-pro`, routed to Antigravity's "Gemini 3.1 Pro (High)") — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the shim command and write the output to disk. Gate checks verify the review file exists and has substantive content. The plain `gemini` CLI is deprecated and is never used as a fallback; the shim's stderr log is `${TMPDIR:-/tmp}/agy-review-shim.err`.
+2. **Codex formatting check** — LaTeX compilation, references, styling issues. Each worker MUST run the direct `codex exec -s read-only` command (sub-agents have no Skill tool, so `codex:rescue` is orchestrator-only).
+
+All reviewer calls are serialized through a project-wide `.review.lock` mutex (concurrent `agy`/`codex` calls return empty output), and a 60-second sanity test of both reviewers runs in Phase 1 before any worker spawns.
 
 Both cycles include fix iterations (max 2 per cycle). After all workers complete, the orchestrator runs a post-worker verification pass that checks every `reviews/$TOPIC-review.md` file exists with real content. Missing or stub reviews trigger a re-run. The website also gets a Codex review before Vercel deployment.
 
@@ -89,7 +98,7 @@ project/
 ## Requirements
 
 - Claude Code with plugins enabled
-- `gemini` CLI (model configurable via `$RESEARCH_GEMINI_MODEL`; default `gemini-3.1-pro`)
+- `agy` (Antigravity) CLI plus the `agy-review-shim` wrapper at `$RESEARCH_GEMINI_BIN` (default `/Users/mlong/.local/bin/agy-review-shim`; the plain `gemini` CLI no longer works)
 - `pdflatex` (LaTeX compilation)
 - `pandoc` (LaTeX to HTML conversion)
 - `ghc` / `cabal` / `stack` (Haskell verification)

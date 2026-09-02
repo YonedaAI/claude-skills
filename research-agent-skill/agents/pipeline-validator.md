@@ -94,42 +94,41 @@ __SLACK_MSG_END__
 
 Run these regex checks:
 
+The MCP tool `mcp__claude_ai_Slack__slack_send_message` takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
+
 ```bash
-# Rule 1: every http/https URL must be wrapped in <...>.
-# A bare URL is one whose http/https scheme is NOT preceded immediately by '<'.
-bare=$(grep -nE '(^|[^<])(https?://[^[:space:]<>]+)' "$MSG_FILE" || true)
+# Rule 1: every http/https URL must be inside a markdown link — i.e. the scheme
+# is immediately preceded by '(' as in [label](https://...). Anything else is bare.
+bare=$(grep -nE '(^|[^(<])https?://' "$MSG_FILE" || true)
 if [ -n "$bare" ]; then
-  echo "FAIL: bare URL(s) in Slack message — wrap in <...> or <url|label>:"
+  echo "FAIL: bare URL(s) in Slack message — use [label](url):"
   echo "$bare" | sed 's/^/  /'
   fail=1
 else
-  echo "PASS: all URLs angle-bracketed"
+  echo "PASS: all URLs are markdown links"
 fi
 
-# Rule 2: catch the specific 'URL *Word' bleed pattern that previously
-# rendered a link with '*GitHub:*' embedded.
-bleed=$(grep -nE 'https?://[^[:space:]<>]+[[:space:]]+\*[A-Za-z]' "$MSG_FILE" || true)
+# Rule 2: catch a link immediately followed by a bold marker — the auto-linker
+# previously folded '*GitHub:*' into the link text.
+bleed=$(grep -nE '\)[[:space:]]*\*' "$MSG_FILE" || true)
 if [ -n "$bleed" ]; then
-  echo "FAIL: URL immediately followed by '*Word' marker — Slack will fold the marker into the link:"
+  echo "FAIL: link immediately followed by a bold marker — put each link on its own bold-label line:"
   echo "$bleed" | sed 's/^/  /'
   fail=1
 fi
 
-# Rule 3: catch malformed angle-bracket pairs.
-# - <https://...|>     (empty label)
-# - <https://...        (unclosed)
-# - https://...>        (unopened)
-malformed=$(grep -nE '<https?://[^>]+\|>|<https?://[^>[:space:]]+[[:space:]]|[^<]https?://[^>]+>' "$MSG_FILE" || true)
-if [ -n "$malformed" ]; then
-  echo "FAIL: malformed Slack link syntax:"
-  echo "$malformed" | sed 's/^/  /'
+# Rule 3: reject Slack-native angle-bracket links — wrong for this MCP tool.
+angle=$(grep -nE '<https?://' "$MSG_FILE" || true)
+if [ -n "$angle" ]; then
+  echo "FAIL: angle-bracket URL(s) — this tool takes markdown, use [label](url):"
+  echo "$angle" | sed 's/^/  /'
   fail=1
 fi
 
-# Rule 4: bold markers must be balanced (even count of '*' on each line that uses them).
-unbalanced=$(awk -F'\\*' '/\*/ { if ((NF-1) % 2 != 0) print NR": "$0 }' "$MSG_FILE" || true)
+# Rule 4: bold markers must be balanced (even count of '**' on each line).
+unbalanced=$(awk '{ n=gsub(/\*\*/,"&"); if (n % 2) print NR": "$0 }' "$MSG_FILE" || true)
 if [ -n "$unbalanced" ]; then
-  echo "FAIL: unbalanced '*bold*' markers (odd count of '*' on a line):"
+  echo "FAIL: unbalanced '**' bold markers on line(s):"
   echo "$unbalanced" | sed 's/^/  /'
   fail=1
 fi
@@ -189,7 +188,7 @@ ARTIFACTS:       [PASS|FAIL]  ([n] required, [m] missing)
 OVERALL: [PASS|FAIL]
 ```
 
-Exit non-zero if `fail=1`. The orchestrator MUST treat a FAIL as a hard block — fix the underlying issue (re-render OG images, re-wrap URLs in `<...>`, re-deploy Vercel) before sending the final Slack message.
+Exit non-zero if `fail=1`. The orchestrator MUST treat a FAIL as a hard block — fix the underlying issue (re-render OG images, convert URLs to `[label](url)` markdown links, re-deploy Vercel) before sending the final Slack message.
 
 ## What you do NOT do
 

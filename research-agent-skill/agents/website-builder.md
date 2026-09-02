@@ -352,9 +352,22 @@ npx vercel project add "$VERCEL_PROJECT" 2>/dev/null || true
 # Link this directory to that project (creates .vercel/project.json)
 npx vercel link --yes --project "$VERCEL_PROJECT" 2>&1
 
-# Deploy to production under the linked project
-npx vercel --prod --yes 2>&1
+# New projects get framework=None (remote build 404s everywhere) and SSO Deployment
+# Protection (302 to vercel.com/sso). Patch both BEFORE the first deploy.
+VERCEL_TOKEN=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/Library/Application Support/com.vercel.cli/auth.json")))["token"])')
+VERCEL_PROJECT_ID=$(python3 -c 'import json;print(json.load(open(".vercel/project.json"))["projectId"])')
+VERCEL_ORG_ID=$(python3 -c 'import json;print(json.load(open(".vercel/project.json"))["orgId"])')
+curl -sS -X PATCH "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}?teamId=${VERCEL_ORG_ID}" \
+  -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"framework":"nextjs","ssoProtection":null}' | grep -q '"framework":"nextjs"' || { echo "ERROR: project PATCH failed"; exit 1; }
+
+# Pull production settings, build locally, deploy the prebuilt output
+npx vercel pull --yes --environment=production 2>&1
+npx vercel build --prod 2>&1
+npx vercel deploy --prebuilt --prod 2>&1
 ```
+
+The clean production alias is `https://<project>.vercel.app`; a `302` to `vercel.com/sso` or a `404` on `/` means the PATCH did not apply — re-run it and redeploy.
 
 **Verification gate** — after deploy, confirm the URL contains `$VERCEL_PROJECT`, not `website`:
 ```bash
@@ -362,7 +375,7 @@ DEPLOY_URL=$(cat .vercel-url 2>/dev/null || npx vercel ls --prod 2>&1 | grep -oE
 echo "$DEPLOY_URL" | grep -q "$VERCEL_PROJECT" || { echo "ERROR: deployment URL '$DEPLOY_URL' does not match project name '$VERCEL_PROJECT'"; exit 1; }
 ```
 
-Do NOT run `vercel --prod --yes` before the `vercel link` step — it will create a project named after the current directory (`website`) instead of `$PROJECT`.
+Do NOT run `vercel deploy` (or `vercel --prod --yes`) before the `vercel link` step — it will create a project named after the current directory (`website`) instead of `$PROJECT` — and do NOT deploy before the project PATCH above, or the deployment serves 404s behind an SSO wall.
 
 ## Quality Requirements
 - Lighthouse score targets: Performance >90, Accessibility >95
