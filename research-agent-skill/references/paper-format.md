@@ -119,7 +119,7 @@ p=$(awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$T" | awk 
 grep -nE '\\(sub)*section\*?\{[^}]*(, (and|stated|named)|\?|what |why |where |nobody|does not|is not|that is the|this (Part|paper)|cannot|worth )' "$T" | grep -v '^\s*%' && echo "FAIL heading style (lines above)" || echo "OK headings"
 grep -nE '\\(sub)*section\*?\{(One|Two|Three|Four|Five|Six) ' "$T" && echo "FAIL counted heading" || echo "OK no counted headings"
 grep -nE '\\title\{[^}]*(: | and what )' "$T" && echo "FAIL title has colon list" || echo "OK title"
-grep -nE '&[^&\\]*; [^&\\]*&' "$T" | grep -vE '^\s*%' | head -3 && echo "CHECK table cells with semicolon fragments (lines above)" || echo "OK table cells"
+cells=$(grep -nE '&[^&\\]*; [^&\\]*&' "$T" | grep -vE '^\s*%' | head -3); [ -z "$cells" ] && echo "OK table cells" || { printf '%s\n' "$cells"; echo "CHECK table cells with semicolon fragments (lines above)"; }
 grep -nE 'font=\\(Large|large|LARGE)' "$T" && echo "FAIL sidebar font too large" || echo "OK sidebar"
 ```
 
