@@ -81,7 +81,7 @@ From that point in the script, always invoke `"$GEMINI"` and `"$CODEX"` — neve
 
 ```bash
 LOCK="$PROJECT_ROOT/.review.lock"
-until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 ... one reviewer call ...
 rmdir "$LOCK" 2>/dev/null; trap - EXIT
 ```
@@ -920,7 +920,7 @@ This step is REQUIRED. After the website is built and BEFORE deploying to Vercel
 ```bash
 cd $PROJECT_PATH/$PROJECT
 LOCK="$PROJECT_PATH/$PROJECT/.review.lock"
-until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Review only the files under website/app, website/lib, website/components and website/out (do not explore papers/, src/ or reviews/) for the checklist below. End with VERDICT: PASS or VERDICT: NEEDS_FIX. <paste the checklist>" </dev/null >> reviews/website-codex-review-round-1.md 2>&1
 rmdir "$LOCK" 2>/dev/null; trap - EXIT
 ```
@@ -1287,6 +1287,7 @@ CRITICAL — the message text from Step 8d.1 already follows these rules; preser
 
 - **Fix loops**: Every review/fix cycle is bounded: Gemini peer review 4 rounds, Codex formatting 2 fix passes (3 invocations), Codex Haskell and website reviews 2 fix passes. When a bound is hit, log the remaining items and continue. The Phase 4.5 style, abstract and typography checks are not bounded loops but hard gates: fix until clean.
 - **Missing tools**: The reviewer shim (`$GEMINI`) and `$CODEX` are MANDATORY — the Phase 1 sanity tests stop the pipeline if either is broken; read `${TMPDIR:-/tmp}/agy-review-shim.err` and never fall back to the deprecated `gemini` CLI. If `pdflatex` is not available, skip PDF compilation. If `vercel` is not available, skip deployment.
+- **Stale review lock**: a foreground Bash call is killed at the tool's 10-minute timeout without firing the EXIT trap, so the lock holder leaves `.review.lock` behind and every sibling blocks on it. Run every reviewer call (agy or codex) from a wrapper started with the Bash tool's `run_in_background` option, trap `EXIT INT TERM`, and prefix the reviewer command with `timeout 900`. A lock older than 20 minutes with no live `bin/codex exec` or agy process (`pgrep -f "bin/codex exec"`, `pgrep -f agy-review-shim`) is stale and may be removed with `rmdir`; never remove a younger one.
 - **Empty reviewer output mid-run**: almost always a concurrent `agy`/`codex` call (mutex not held) or a stale `.review.lock` from a crashed worker. Check the lock directory, read the shim log, re-run the Step 1b sanity test, then respawn the affected worker.
 - **Compilation failures**: If LaTeX or Haskell won't compile after 3 attempts, save the error log and continue with remaining topics.
 - **Slack failures**: If Slack notification fails, log the error but don't block the pipeline.

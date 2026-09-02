@@ -181,7 +181,7 @@ Iterative loop: run Codex → fix → re-run Codex → if still NEEDS_FIX, fix a
     echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
     echo "---" >> "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
-    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
     timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the Haskell files in src/$TOPIC/ (do not explore other directories). Review them for: type safety, missing type signatures, incomplete patterns, code quality, idiomatic style, correctness of QuickCheck properties, soundness of equational proofs. List issues with file:line references and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 

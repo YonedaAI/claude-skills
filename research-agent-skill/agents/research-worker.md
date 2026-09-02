@@ -60,7 +60,7 @@ Reviewer shim facts: `agy` 1.1.23+ rejects `--effort` for models whose name alre
 
 ```bash
 LOCK="$PROJECT_ROOT/.review.lock"
-until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 ... one reviewer call ...
 rmdir "$LOCK" 2>/dev/null; trap - EXIT
 ```
@@ -115,7 +115,7 @@ This is an iterative loop. You submit the paper to Gemini for external review, f
     echo "---" >> "$R"
     echo "" >> "$R"
     LOCK="$PROJECT_ROOT/.review.lock"
-    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
     cat papers/latex/$TOPIC.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and prose quality against this house style: rigorous scholarly prose that prioritizes precision, clarity, and argumentative flow; one identifiable claim per paragraph supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler, signposting, nominalization, or nested subordination; complexity from the subject, not the prose. Quote the weakest three paragraphs with line numbers and rewrite one as a model. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
     GEMINI_RC=$?
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
@@ -212,7 +212,7 @@ Write the header, then run Codex read-only with its output appended to the same 
     echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
     echo "---" >> "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
-    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
     timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/$TOPIC.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS (no issues remain) or VERDICT: NEEDS_FIX (issues listed above must be fixed)." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
@@ -263,7 +263,7 @@ The paper's code evidence appendix (the table mapping each computational claim t
     ROUND_FILE=reviews/$TOPIC-code-audit-round-N.md          # N = 1 or 2
     { echo "---"; echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}"; echo "type: code-audit"; echo "paper: $TOPIC"; echo "round: N"; echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo "---"; } > "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
-    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
     timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read papers/latex/$TOPIC.tex and ONLY the files under src/$TOPIC/ that its code evidence appendix names (do not explore anything else). For EVERY row of the appendix output one line: ROW <n> | <claim, 10 words max> | SUPPORTS | PARTIAL | NO | <one-sentence reason>. SUPPORTS means the named code actually demonstrates or tests the claim as stated. End with VERDICT: PASS if every row is SUPPORTS, else VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 

@@ -52,7 +52,7 @@ Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `ge
 
 ```bash
 LOCK="$PROJECT_ROOT/.review.lock"
-until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 ... one reviewer call ...
 rmdir "$LOCK" 2>/dev/null; trap - EXIT
 ```
@@ -90,7 +90,7 @@ rmdir "$LOCK" 2>/dev/null; trap - EXIT
        echo "---" >> "$R"
        echo "" >> "$R"
        LOCK="$PROJECT_ROOT/.review.lock"
-       until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+       until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
        cat papers/latex/synthesis.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this synthesis paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and how effectively it unifies the component papers. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
        rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
@@ -156,7 +156,7 @@ rmdir "$LOCK" 2>/dev/null; trap - EXIT
        echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
        echo "---" >> "$ROUND_FILE"
        LOCK="$PROJECT_ROOT/.review.lock"
-       until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+       until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
        timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/synthesis.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
        rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
