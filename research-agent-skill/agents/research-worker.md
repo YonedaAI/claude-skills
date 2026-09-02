@@ -20,7 +20,7 @@ description: |
   Workers run independently and in parallel after the knowledge base is built.
   </commentary>
   </example>
-model: opus
+model: fable
 color: blue
 tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "WebSearch", "WebFetch"]
 ---
@@ -72,9 +72,9 @@ Acquire, run ONE `"$GEMINI"` or `"$CODEX"` command, release. Edit the paper only
 ### Stage 1 — Draft Paper
 - Read `.knowledge-base.md` for context
 - Write `papers/latex/$TOPIC.tex` — minimum 20 pages
-- Use `\documentclass[12pt]{article}` with packages: amsmath, amssymb, tikz-cd, hyperref, cleveref, graphicx, tikz, everypage, xcolor
+- Use the preamble in `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md`: `\documentclass[11pt]{article}`, T1 fontenc, lmodern, microtype, geometry `top=1in, bottom=1in, left=1.25in, right=1.25in` (a 6 in by 9 in text block, about 80 characters per line), then amsmath, amssymb, amsthm, tikz-cd, hyperref, cleveref, graphicx, tikz, everypage, xcolor. Never 12pt, never `margin=1in`, never `parskip`. Title block via `\maketitle`. Abstract via the `abstract` environment: one paragraph, 150 to 250 words, main result in the first sentence, evidence in the second, no citations. Run the abstract and typography check in paper-format.md before Stage 7.
 - Define theorem environments: Theorem, Proposition, Lemma, Corollary, Definition, Remark
-- Required sections: Abstract, Introduction, Mathematical Framework, [topic-specific sections], Results, Discussion, Conclusion, References
+- Required sections: Abstract, Introduction, Definitions (or Mathematical framework when the topic is mathematical), topic-specific sections, Discussion or Limitations, Conclusion, References. Headings are plain noun phrases in sentence case (see paper-format.md).
 - Include formal definitions, theorems with proofs, and concrete examples
 - Write to the academic style standard in `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md`: scholarly prose with intellectual authority, one identifiable claim per paragraph, findings stated before qualifications, ordinary language where it is exactly as precise, no filler or signposting, complexity from the subject and never from the prose. Run its filler grep before Stage 7 and rewrite every hit. This standard applies to every run, with or without `HUMAN-READABLE: ON`.
 - Write a finished scholarly paper, not a pipeline report. Do not add agent activity, reviewer verdicts, confidence labels, provenance fields, audit badges, or blanket claim taxonomies to the LaTeX. Use conventional mathematical environments only where they serve the argument; prove, cite, narrow, revise, or remove unsupported claims.
@@ -276,7 +276,7 @@ Add to preamble (see `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` for temp
 
 ### Stage 7 — Compile PDF (FINAL — after ALL fixes are done)
 
-**IMPORTANT:** This stage runs AFTER all review fixes (Stage 3-4) AND Codex fixes (Stage 5, and 5b when enabled) AND GrokRxiv sidebar (Stage 6) are complete. Always run the filler grep from `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md` first and rewrite every hit; when `HUMAN-READABLE: ON`, also run the humanizer grep checks from `${CLAUDE_PLUGIN_ROOT}/references/team-protocol.md` and fix every hit. The PDF must reflect the FINAL state of the .tex file with ALL corrections applied. If you compiled earlier during debugging, you MUST recompile here.
+**IMPORTANT:** This stage runs AFTER all review fixes (Stage 3-4) AND Codex fixes (Stage 5, and 5b when enabled) AND GrokRxiv sidebar (Stage 6) are complete. Always run the format check from `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` and the filler grep from `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md` first and fix every FAIL and rewrite every hit; when `HUMAN-READABLE: ON`, also run the humanizer grep checks from `${CLAUDE_PLUGIN_ROOT}/references/team-protocol.md` and fix every hit. The PDF must reflect the FINAL state of the .tex file with ALL corrections applied. If you compiled earlier during debugging, you MUST recompile here.
 
 Run this Bash command:
 

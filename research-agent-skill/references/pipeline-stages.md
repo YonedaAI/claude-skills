@@ -18,6 +18,13 @@ Phase 3: Research Workers (parallel, one per topic)
 Phase 4: Synthesis Agent (single agent, foreground)
   ├── Reads all completed papers
   ├── Same sub-pipeline as workers
+  └─── BLOCKS ──→ Phase 4.5
+
+Phase 4.5: Pre-compile gates (orchestrator, every run)
+  ├── Style: filler and signposting grep from style-standard.md over every paper, fix until clean
+  ├── Format: abstract one paragraph of 150 to 250 words, 10pt or 11pt, paper-format geometry, \maketitle
+  ├── Optional: --bib-gate resolves every arXiv/DOI/URL entry; --human-readable runs the humanizer grep
+  ├── Any paper edited here is recompiled before Phase 6
   └─── BLOCKS ──→ Phase 5, Phase 6
 
 Phase 5: Haskell Verification (parallel per topic, can overlap with Phase 6 prep)
@@ -52,8 +59,9 @@ All review/fix cycles are bounded to prevent infinite loops:
 
 | Review Type | Max Iterations | Action if unresolved |
 |-------------|---------------|----------------------|
-| Gemini peer review fix | 2 | Log remaining issues, continue |
-| Codex LaTeX formatting fix | 2 | Log remaining issues, continue |
+| Gemini peer review fix | 4 rounds | Log remaining issues, continue |
+| Codex LaTeX formatting fix | 2 fix passes (3 invocations) | Log remaining issues, continue |
+| Style, abstract and typography gate (Phase 4.5) | until clean | Hard gate: do not continue |
 | Codex Haskell review fix | 2 | Log remaining issues, continue |
 | Codex website review fix | 2 | Log remaining issues, continue |
 | GHC compilation fix | 3 | Save error log, skip this module |

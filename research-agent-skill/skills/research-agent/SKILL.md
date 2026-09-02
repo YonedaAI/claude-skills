@@ -1,7 +1,7 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.7.13
+version: 0.7.14
 ---
 
 # Research Agent Pipeline — Orchestration
@@ -40,7 +40,7 @@ Read these at the start of execution. All have sensible defaults — none are re
 | `RESEARCH_GITHUB_ORG` | `YonedaAI` | GitHub organization for repo creation |
 | `RESEARCH_SLACK_CHANNEL` | `C0AK269AVSA` | Slack channel ID for notifications |
 | `RESEARCH_GEMINI_MODEL` | `gemini-3.1-pro` | Gemini model for peer review |
-| `RESEARCH_WORKER_MODEL` | `opus` | Model for research-worker and synthesis agents |
+| `RESEARCH_WORKER_MODEL` | `fable` | Model for research-worker and synthesis agents (Claude Fable 5.1; Opus produced prose the house style rejects) |
 | `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
 | `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | Peer-review CLI: the `agy` (Antigravity) shim `agy-review-shim` (routes review calls to agy, model "Gemini 3.1 Pro (High)"). Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. The shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set (agy >= 1.1.23 rejects `--effort` for models whose name already carries effort) and logs stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`. |
 | `AGY_REVIEW_EFFORT` | *(unset)* | Only set this when `AGY_REVIEW_MODEL` names a model WITHOUT an effort suffix. Leave unset for "Gemini 3.1 Pro (High)" — agy 1.1.23+ exits with a flag error otherwise and the review comes back empty. |
@@ -139,7 +139,7 @@ If you present a plan to the user, the plan MUST explicitly list all 8 of the ab
 
 ## Academic Style Standard — HARD GATE
 
-Every paper, the synthesis, the README, and website copy follow `references/style-standard.md`: rigorous scholarly prose with intellectual authority; one identifiable claim per paragraph, supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler ("It is important to note", "This Part seeks to", "the aforementioned", "under the documented search strategy"), no artificial transitions, no repetitive signposting, no "First... Second... Third..." scaffolding unless the enumeration aids comprehension; complexity from the subject matter, never from the prose. Workers and the synthesis agent run the standard's filler grep before their final compile; the orchestrator re-runs it in Phase 4.5 over every paper and records the clean run in `reviews/style-check.md`. Applies to every run regardless of `--human-readable`.
+Every paper, the synthesis, the README, and website copy follow `references/style-standard.md` and the format rules in `references/paper-format.md` (title, abstract, heading, and table rules; 11pt arXiv layout): rigorous scholarly prose with intellectual authority; one identifiable claim per paragraph, supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler ("It is important to note", "This Part seeks to", "the aforementioned", "under the documented search strategy"), no artificial transitions, no repetitive signposting, no "First... Second... Third..." scaffolding unless the enumeration aids comprehension; complexity from the subject matter, never from the prose. Workers and the synthesis agent run the standard's filler grep before their final compile; the orchestrator re-runs it in Phase 4.5 over every paper and records the clean run in `reviews/style-check.md`. Applies to every run regardless of `--human-readable`.
 
 ## Publication Presentation Contract — HARD GATE
 
@@ -337,8 +337,8 @@ Read .knowledge-base.md for context, then execute this pipeline:
 
 ### Stage 1 — Draft
 Write an arxiv-style LaTeX paper (>=20 pages) to `papers/latex/$TOPIC.tex`
-Include: abstract, introduction, mathematical framework, results, discussion, references.
-Use standard article class, amsmath, amssymb, tikz-cd, hyperref, cleveref.
+Include: abstract, introduction, mathematical framework, results, discussion, references. Typography and layout exactly as in references/paper-format.md: 11pt, 6 in by 9 in text block, `\maketitle`, and the `abstract` environment as one paragraph of 150 to 250 words with the main result in its first sentence. Never 12pt or `margin=1in`.
+Use the exact arXiv-style skeleton in references/paper-format.md (11pt letterpaper, 6in measure, standard one-paragraph abstract of 150 to 250 words, plain sentence-case headings, Title Case title of two to six words) and run its format check before the final compile.
 Add custom theorem environments (Theorem, Proposition, Lemma, Definition, Remark).
 Keep the paper free of agent activity, review status, confidence labels, provenance fields, audit badges, and internal claim classifications. Use conventional mathematical environments only where they serve the argument.
 Write to the academic style standard in references/style-standard.md (one claim per paragraph, findings before qualifications, no filler or signposting, complexity from the subject and never from the prose) and run its filler grep before your final compile.
@@ -588,7 +588,7 @@ Both gates run in the orchestrator (workers and synthesis are done, Phase 6 has 
 
 **Bibliography gate (only when `--bib-gate`).** For every `papers/latex/*.tex` (and `.bib` files if used), list each bibliography entry that carries an arXiv id, DOI, or URL. Resolve each with `WebFetch` (`https://arxiv.org/abs/<id>`, `https://doi.org/<doi>`, or the URL). An entry resolves when the page exists and its title matches the entry (allow minor punctuation differences). Write results to `team/<slug>/bib-check.md` when `team/` exists, otherwise `reviews/<slug>-bib-check.md`, one line per entry: `OK | MISSING | MISMATCH  <key>  <target>  <note>`. Every MISSING/MISMATCH entry is then removed from the paper (and its `\cite` sites rewritten) or replaced by a resolvable reference. The gate passes only when the file has zero MISSING/MISMATCH lines.
 
-**Style checks (every run).** Run the filler grep in `references/style-standard.md` over every `papers/latex/*.tex`. Fix every hit by rewriting the prose, then re-run until clean. Record the final clean run in `reviews/style-check.md`.
+**Style checks (every run).** Run the filler grep in `references/style-standard.md` over every `papers/latex/*.tex`. Fix every hit by rewriting the prose, then re-run until clean. Then run the abstract and typography check in `references/paper-format.md`: every abstract is one paragraph of 150 to 250 words, every paper is 10pt or 11pt with the paper-format geometry and `\maketitle`. Shorten abstracts (move the surplus to the introduction) and fix preambles until clean. Record both clean runs in `reviews/style-check.md`.
 
 **Human-readable checks (only when `--human-readable`).** Run the grep checks in `references/team-protocol.md` ("Humanizer grep checks") over every `papers/latex/*.tex`. Fix every hit by editing the prose (not by adding exceptions), then re-run until clean. Record the final clean run in `reviews/human-readable-check.md`.
 
@@ -1285,7 +1285,7 @@ CRITICAL — the message text from Step 8d.1 already follows these rules; preser
 
 ## Error Handling
 
-- **Fix loops**: All review/fix cycles are bounded to **2 iterations maximum**. If issues persist after 2 rounds, log them and continue.
+- **Fix loops**: Every review/fix cycle is bounded: Gemini peer review 4 rounds, Codex formatting 2 fix passes (3 invocations), Codex Haskell and website reviews 2 fix passes. When a bound is hit, log the remaining items and continue. The Phase 4.5 style, abstract and typography checks are not bounded loops but hard gates: fix until clean.
 - **Missing tools**: The reviewer shim (`$GEMINI`) and `$CODEX` are MANDATORY — the Phase 1 sanity tests stop the pipeline if either is broken; read `${TMPDIR:-/tmp}/agy-review-shim.err` and never fall back to the deprecated `gemini` CLI. If `pdflatex` is not available, skip PDF compilation. If `vercel` is not available, skip deployment.
 - **Empty reviewer output mid-run**: almost always a concurrent `agy`/`codex` call (mutex not held) or a stale `.review.lock` from a crashed worker. Check the lock directory, read the shim log, re-run the Step 1b sanity test, then respawn the affected worker.
 - **Compilation failures**: If LaTeX or Haskell won't compile after 3 attempts, save the error log and continue with remaining topics.

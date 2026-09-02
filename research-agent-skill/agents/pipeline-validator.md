@@ -174,6 +174,33 @@ for tex in papers/latex/*.tex; do
 done
 ```
 
+### E. Style and format gate
+
+The academic style standard and the arXiv paper format are hard gates for every run. Check the record and re-run the cheap parts live:
+
+```bash
+cd "$PROJECT_PATH/$PROJECT"
+[ -s reviews/style-check.md ] && grep -q "STYLE GREP: CLEAN" reviews/style-check.md \
+  && echo "PASS: reviews/style-check.md records a clean style grep" \
+  || { echo "FAIL: reviews/style-check.md missing or does not record STYLE GREP: CLEAN"; fail=1; }
+for tex in papers/latex/*.tex; do
+  hits=$(grep -ciE 'it is important to note|it is worth noting|it should be noted|the aforementioned|under the documented search strategy|findings follow from the evidence|in what follows|having established|the remainder of this|we now turn to' "$tex")
+  [ "$hits" = 0 ] && echo "PASS: $tex filler grep" || { echo "FAIL: $tex has $hits filler/signposting hits"; fail=1; }
+  body=$(awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$tex")
+  words=$(printf '%s\n' "$body" | wc -w | tr -d ' ')
+  breaks=$(printf '%s\n' "$body" | grep -cE '^[[:space:]]*$|\\par([^a-zA-Z]|$)')
+  { [ "$words" -ge 150 ] && [ "$words" -le 250 ] && [ "$breaks" = 0 ]; } \
+    && echo "PASS: $tex abstract ($words words, one paragraph)" \
+    || { echo "FAIL: $tex abstract is $words words with $breaks paragraph breaks (must be 150 to 250 words, one paragraph)"; fail=1; }
+  grep -m1 -oE '\\documentclass\[[^]]*\]' "$tex" | grep -qE '1[01]pt' \
+    && echo "PASS: $tex body size" || { echo "FAIL: $tex is not 10pt or 11pt"; fail=1; }
+  grep -q 'margin=1in' "$tex" && { echo "FAIL: $tex uses margin=1in (6.5in measure); use the paper-format.md geometry"; fail=1; }
+  grep -q '\\maketitle' "$tex" || { echo "FAIL: $tex has no \\maketitle"; fail=1; }
+done
+```
+
+If FAIL: the orchestrator rewrites the prose or shortens the abstract (surplus goes to the introduction), fixes the preamble, recompiles, and re-runs Phase 6 conversion for that paper. Do not weaken the thresholds.
+
 ## Output format
 
 Print every PASS/FAIL line above, then a summary block:
@@ -184,6 +211,7 @@ OG IMAGES:       [PASS|FAIL]  ([n] checked, [m] failed)
 SLACK MESSAGE:   [PASS|FAIL]  ([rules failed])
 VERCEL URL:      [PASS|FAIL]  ([url])
 ARTIFACTS:       [PASS|FAIL]  ([n] required, [m] missing)
+STYLE/FORMAT:    [PASS|FAIL]  ([n] papers, [m] failing)
 
 OVERALL: [PASS|FAIL]
 ```

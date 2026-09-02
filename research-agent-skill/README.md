@@ -28,6 +28,10 @@ A Claude Code plugin that orchestrates a multi-agent research pipeline. Takes co
 | `--codex-model <m>` | Model for direct `codex exec` calls (`RESEARCH_CODEX_MODEL`) | `gpt-5.6-sol` |
 | `--codex-effort <e>` | Reasoning effort for `codex exec` (`RESEARCH_CODEX_EFFORT`) | `high` |
 
+### Writing standard (every run, not a flag)
+
+Every paper, the synthesis, the README and the website copy are written to the academic style standard in `references/style-standard.md`: scholarly prose with intellectual authority, one identifiable claim per paragraph, findings stated before their qualifications, ordinary words where they are exactly as precise, no filler or signposting, complexity from the subject and never from the prose. `references/paper-format.md` carries the section-by-section conventions for the arXiv-style paper (abstract states the result first, introduction states the contribution first, conclusion says what was established, what failed and what remains open). The standard's filler grep is a hard gate in Phase 4.5 and its clean run is recorded in `reviews/style-check.md`. `--human-readable` adds the surface-level humanizer rules on top.
+
 ## Pipeline
 
 ```

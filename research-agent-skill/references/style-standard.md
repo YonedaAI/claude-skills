@@ -14,6 +14,18 @@ Sound like a scholar explaining something important to another scholar, not like
 
 Complexity must come from the subject matter, not from the prose. If the subject is evaluator bias, bounded agent loops, formal verification, or distributed systems, the ideas may be difficult; the prose should do everything possible to make them easier to reason about.
 
+## Titles, headings, abstracts, and tables (the tells a model leaves)
+
+A title is a short noun phrase a scholar would put on a paper: "Agent Teams", "The Anatomy of Agentic Engineering". Never a colon followed by a list of three ("Part I: what ends, what does not, and what the evidence supports"). Never a question. Never a subtitle that summarizes the argument.
+
+A heading names its subject in one to seven words, sentence case: "Definitions", "Randomized trials", "The failure catalogue", "Limitations". Not: "The mechanism argument, and what is wrong with it", "State, named and handed on", "The lineage caveat, stated once", "Three consequences this Part does not develop", "Does a team earn its cost?", "What a plan buys", "Benchmarks cannot carry the argument". The aphoristic heading with a comma and a tail is the most recognizable model tell in the whole document; it never appears.
+
+An abstract is one paragraph of 150 to 250 words with no citations: the question, the approach, the findings with their numbers, the main limitation. It is not a six-paragraph tour of the paper.
+
+A table cell is a phrase a reader can say aloud. Telegraphic fragments ("diffuse; no single origin", "same post; internal eval") are notes, not prose, and they hyphenate badly in narrow columns. Widen the column, shorten the phrase, or move the content to prose.
+
+Formatting follows `paper-format.md`: 11pt article, 6in measure, indented paragraphs without vertical gaps, standard abstract environment, booktabs, footnotesize sidebar.
+
 ## Two worked examples
 
 Weak:
@@ -37,6 +49,10 @@ The strong versions are more scholarly, not less: the proposition and its eviden
 ## Absence wording (replaces the earlier brief wording)
 
 When no documented case or measurement exists, say so plainly and once: "We found no documented case of X in the sources reviewed (cutoff <research cutoff date>)." or "None of the sources we located reports X." Do not write "no qualifying evidence was identified under the documented search strategy as of the cutoff."
+
+## Abstract
+
+One paragraph of 150 to 250 words, in the article `abstract` environment. The first sentence states the main result. The second states the evidence or the system the result was checked against. The rest gives the scope and the main negative finding. No motivation paragraph, no definitions, no historical antecedents, no citations, no display math. An abstract that moves through motivation, definitions, antecedents, evidence, result and cost is an introduction: move that material to Section 1. Typography and the LaTeX preamble are fixed in `paper-format.md`.
 
 ## Paragraph test (apply while editing)
 
