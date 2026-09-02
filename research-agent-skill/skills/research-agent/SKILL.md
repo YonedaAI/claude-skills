@@ -1,7 +1,6 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.7.16
 ---
 
 # Research Agent Pipeline — Orchestration
