@@ -1,5 +1,7 @@
 # Paper format: arXiv-style article
 
+The writing itself follows `writing-standard.md` (master) and `style-standard.md` (companion). This file fixes the LaTeX layout.
+
 Every paper looks like a conventional arXiv preprint: 11pt article, one column, a restrained title block, a one-paragraph abstract, numbered sections with plain headings, indented paragraphs, booktabs tables, and a small bibliography. Nothing on the page should look like large print, a book, or a slide.
 
 ## Document class and preamble (use exactly this skeleton)
@@ -10,7 +12,7 @@ Every paper looks like a conventional arXiv preprint: 11pt article, one column, 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
-\usepackage[top=1in,bottom=1in,left=1.25in,right=1.25in]{geometry}  % 6in measure, about 90 characters per line
+\usepackage[margin=1in]{geometry}      % one-inch margins, as the writing standard specifies
 \linespread{1.0}
 \setlength{\parskip}{0pt}          % conventional article: indent, no vertical gap
 \setlength{\parindent}{1.5em}
@@ -109,7 +111,7 @@ grep -E '^!|Undefined control|undefined|Overfull' $TOPIC.log
 ```bash
 T=papers/latex/$TOPIC.tex
 grep -q '\\documentclass\[11pt,letterpaper\]{article}' "$T" && echo "OK class" || echo "FAIL class: use 11pt letterpaper"
-grep -q 'left=1.25in,right=1.25in' "$T" && echo "OK margins" || echo "FAIL margins"
+grep -q 'margin=1in' "$T" && echo "OK margins" || echo "FAIL margins: use margin=1in"
 ! grep -qE '\\usepackage(\[[^]]*\])?\{parskip\}|\\setlength\{\\parskip\}\{[1-9]' "$T" && echo "OK no parskip" || echo "FAIL parskip: no parskip package, no nonzero \\parskip"
 w=$(awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$T" | wc -w); [ "$w" -ge 150 ] && [ "$w" -le 250 ] && echo "OK abstract $w words" || echo "FAIL abstract $w words (150 to 250)"
 p=$(awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$T" | awk 'BEGIN{RS=""} END{print NR}'); [ "$p" -le 1 ] && echo "OK abstract one paragraph" || echo "FAIL abstract has $p paragraphs"

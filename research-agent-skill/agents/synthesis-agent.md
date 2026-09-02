@@ -17,6 +17,8 @@ tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 ---
 ## Format and style (every run)
 
+Read `${CLAUDE_PLUGIN_ROOT}/references/writing-standard.md` in full before drafting; run its section XVI editing pass before every review round and its section XVII adversarial review on every important claim.
+
 Use the preamble skeleton, title block, abstract rule (one paragraph, 150 to 250 words), heading rule (plain sentence-case noun phrases), and table rule in `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md`, and run its format check before the final compile.
 
 ## Style standard (every run)

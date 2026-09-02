@@ -1,4 +1,6 @@
-# Academic style standard (mandatory for every paper, the synthesis, the README, and website copy in every research-agent run)
+# Style companion: worked examples, tells, and grep checks
+
+The master writing reference is `writing-standard.md` (eighteen sections: core principle, prohibited model-writing habits, sentence and paragraph style, argument, evidence, literature review, abstract, introduction, mathematics, systems papers, results, conclusion, LaTeX typography, tables and figures, the anti-slop edit, adversarial review, final standard). Read it first. This file adds worked examples, the recognizable tells, and grep checks that enforce the parts of the standard a script can see.
 
 The target is academic prose with intellectual authority, not "academic-sounding" prose. Good academic writing makes difficult ideas precise without making straightforward ideas difficult. Density, qualification, and abstraction are not substitutes for clarity.
 
@@ -66,7 +68,7 @@ cd "$PROJECT_ROOT"
 fail=0
 for tex in papers/latex/*.tex; do
   echo "=== $tex ==="
-  grep -niE 'it is important to note|it is worth noting|it should be noted|this (part|paper|section) (seeks|aims|attempts) to|the aforementioned|aforementioned|the quantity that would settle|under the documented search strategy|as of the cutoff|findings follow from the evidence|in what follows|having established|it follows that|in this section,? we|the remainder of this|we now turn to|note that,? |namely,? |in other words,? |that is to say|it is (clear|evident|apparent) that|of note|with respect to|in terms of|in the context of|a number of|the fact that' "$tex" | grep -vE '^[[:space:]]*%|\\(cite|bibitem|url|href)' && { echo "HIT: filler or signposting"; fail=1; }
+  grep -niE 'it is important to note|it is worth noting|it should be noted|this (part|paper|section) (seeks|aims|attempts|asks|explores) to|this section explores|this part asks|the aforementioned|aforementioned|the quantity that would settle|under the documented search strategy|as of the cutoff|findings follow|in what follows|having established|it follows that|in this section,? we|the remainder of this|we now turn to|note that,? |namely,? |in other words,? |that is to say|it is (clear|evident|apparent|obvious) that|\\bclearly\\b|it follows immediately|of note|with respect to|in terms of|in the context of|a number of|the fact that|\\bcrucially\\b|\\binterestingly\\b|\\bnotably\\b|\\bmoreover\\b|\\bfurthermore\\b|taken together|this (highlights|underscores|demonstrates the importance)|the key insight|at its core|rapidly evolving|a growing body of|the broader implications|a powerful framework|this is the first|\\[SOURCE REQUIRED\\]|\\[VERIFY VALUE\\]' "$tex" | grep -vE '^[[:space:]]*%|\\(cite|bibitem|url|href)' && { echo "HIT: filler or signposting"; fail=1; }
   grep -nE '^\s*(First|Second|Third|Fourth|Fifth|Finally),' "$tex" | grep -vE '^[[:space:]]*%' && { echo "HIT: enumerated signposting (keep only if the enumeration aids comprehension; otherwise rewrite)"; fail=1; }
 done
 [ "$fail" = 0 ] && echo "STYLE GREP: CLEAN" || echo "STYLE GREP: rewrite the hits above"

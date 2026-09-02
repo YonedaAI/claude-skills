@@ -1,7 +1,7 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.7.14
+version: 0.7.15
 ---
 
 # Research Agent Pipeline — Orchestration
@@ -139,7 +139,7 @@ If you present a plan to the user, the plan MUST explicitly list all 8 of the ab
 
 ## Academic Style Standard — HARD GATE
 
-Every paper, the synthesis, the README, and website copy follow `references/style-standard.md` and the format rules in `references/paper-format.md` (title, abstract, heading, and table rules; 11pt arXiv layout): rigorous scholarly prose with intellectual authority; one identifiable claim per paragraph, supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler ("It is important to note", "This Part seeks to", "the aforementioned", "under the documented search strategy"), no artificial transitions, no repetitive signposting, no "First... Second... Third..." scaffolding unless the enumeration aids comprehension; complexity from the subject matter, never from the prose. Workers and the synthesis agent run the standard's filler grep before their final compile; the orchestrator re-runs it in Phase 4.5 over every paper and records the clean run in `reviews/style-check.md`. Applies to every run regardless of `--human-readable`.
+The master writing reference is `references/writing-standard.md` (eighteen sections, from core principle through the anti-slop edit and adversarial review); every drafting and editing agent reads it in full first. Every paper, the synthesis, the README, and website copy also follow the companion `references/style-standard.md` and the format rules in `references/paper-format.md` (title, abstract, heading, and table rules; 11pt arXiv layout): rigorous scholarly prose with intellectual authority; one identifiable claim per paragraph, supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler ("It is important to note", "This Part seeks to", "the aforementioned", "under the documented search strategy"), no artificial transitions, no repetitive signposting, no "First... Second... Third..." scaffolding unless the enumeration aids comprehension; complexity from the subject matter, never from the prose. Workers and the synthesis agent run the standard's filler grep before their final compile; the orchestrator re-runs it in Phase 4.5 over every paper and records the clean run in `reviews/style-check.md`. Applies to every run regardless of `--human-readable`.
 
 ## Publication Presentation Contract — HARD GATE
 
