@@ -110,7 +110,7 @@ grep -E '^!|Undefined control|undefined|Overfull' $TOPIC.log
 T=papers/latex/$TOPIC.tex
 grep -q '\\documentclass\[11pt,letterpaper\]{article}' "$T" && echo "OK class" || echo "FAIL class: use 11pt letterpaper"
 grep -q 'left=1.25in,right=1.25in' "$T" && echo "OK margins" || echo "FAIL margins"
-! grep -q 'parskip' "$T" && echo "OK no parskip" || echo "FAIL parskip"
+! grep -qE '\\usepackage(\[[^]]*\])?\{parskip\}|\\setlength\{\\parskip\}\{[1-9]' "$T" && echo "OK no parskip" || echo "FAIL parskip: no parskip package, no nonzero \\parskip"
 w=$(awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$T" | wc -w); [ "$w" -ge 150 ] && [ "$w" -le 250 ] && echo "OK abstract $w words" || echo "FAIL abstract $w words (150 to 250)"
 p=$(awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$T" | awk 'BEGIN{RS=""} END{print NR}'); [ "$p" -le 1 ] && echo "OK abstract one paragraph" || echo "FAIL abstract has $p paragraphs"
 ! awk '/\\begin\{abstract\}/{f=1;next} /\\end\{abstract\}/{f=0} f' "$T" | grep -q '\\cite' && echo "OK abstract no citations" || echo "FAIL abstract cites"

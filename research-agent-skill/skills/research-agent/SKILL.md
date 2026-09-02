@@ -337,7 +337,7 @@ Read .knowledge-base.md for context, then execute this pipeline:
 
 ### Stage 1 — Draft
 Write an arxiv-style LaTeX paper (>=20 pages) to `papers/latex/$TOPIC.tex`
-Include: abstract, introduction, mathematical framework, results, discussion, references. Typography and layout exactly as in references/paper-format.md: 11pt, 6 in by 9 in text block, `\maketitle`, and the `abstract` environment as one paragraph of 150 to 250 words with the main result in its first sentence. Never 12pt or `margin=1in`.
+Include: abstract, introduction, mathematical framework, results, discussion, references.
 Use the exact arXiv-style skeleton in references/paper-format.md (11pt letterpaper, 6in measure, standard one-paragraph abstract of 150 to 250 words, plain sentence-case headings, Title Case title of two to six words) and run its format check before the final compile.
 Add custom theorem environments (Theorem, Proposition, Lemma, Definition, Remark).
 Keep the paper free of agent activity, review status, confidence labels, provenance fields, audit badges, and internal claim classifications. Use conventional mathematical environments only where they serve the argument.

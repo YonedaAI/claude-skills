@@ -50,10 +50,6 @@ The strong versions are more scholarly, not less: the proposition and its eviden
 
 When no documented case or measurement exists, say so plainly and once: "We found no documented case of X in the sources reviewed (cutoff <research cutoff date>)." or "None of the sources we located reports X." Do not write "no qualifying evidence was identified under the documented search strategy as of the cutoff."
 
-## Abstract
-
-One paragraph of 150 to 250 words, in the article `abstract` environment. The first sentence states the main result. The second states the evidence or the system the result was checked against. The rest gives the scope and the main negative finding. No motivation paragraph, no definitions, no historical antecedents, no citations, no display math. An abstract that moves through motivation, definitions, antecedents, evidence, result and cost is an introduction: move that material to Section 1. Typography and the LaTeX preamble are fixed in `paper-format.md`.
-
 ## Paragraph test (apply while editing)
 
 1. What is this paragraph's one claim? If you cannot name it in a sentence, split or cut the paragraph.
