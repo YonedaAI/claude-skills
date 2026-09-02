@@ -71,6 +71,8 @@ Spawned as a `general-purpose` agent after the post-worker review gate passes. I
 
 ## 2. Humanizer rules (`--human-readable`)
 
+These rules sit on top of the academic style standard in `style-standard.md`, which applies to every run. The humanizer rules remove surface tells; the style standard fixes the prose itself.
+
 Apply while drafting and again before the final compile. They tighten scholarly prose; they never remove mathematics, citations, or hedges that are genuinely warranted.
 
 1. No em dashes and no en dashes in prose (`—`, `–`). Use a comma, a colon, parentheses, or a new sentence. Number ranges use "to" ("pages 3 to 7") or a hyphen inside math mode only.

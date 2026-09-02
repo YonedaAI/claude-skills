@@ -76,6 +76,7 @@ Acquire, run ONE `"$GEMINI"` or `"$CODEX"` command, release. Edit the paper only
 - Define theorem environments: Theorem, Proposition, Lemma, Corollary, Definition, Remark
 - Required sections: Abstract, Introduction, Mathematical Framework, [topic-specific sections], Results, Discussion, Conclusion, References
 - Include formal definitions, theorems with proofs, and concrete examples
+- Write to the academic style standard in `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md`: scholarly prose with intellectual authority, one identifiable claim per paragraph, findings stated before qualifications, ordinary language where it is exactly as precise, no filler or signposting, complexity from the subject and never from the prose. Run its filler grep before Stage 7 and rewrite every hit. This standard applies to every run, with or without `HUMAN-READABLE: ON`.
 - Write a finished scholarly paper, not a pipeline report. Do not add agent activity, reviewer verdicts, confidence labels, provenance fields, audit badges, or blanket claim taxonomies to the LaTeX. Use conventional mathematical environments only where they serve the argument; prove, cite, narrow, revise, or remove unsupported claims.
 - **Optional flags in your prompt** (apply only when the prompt says so):
   - `MULTI-AGENT TEAM: ON` — before drafting, write `team/$TOPIC/contract.md` (objects you define, objects you import, notation, Part number), append a `CONTRACT` line to `team/board.md`, then draft. After your draft, append `DRAFT`, wait (bounded, 20 minutes max, polling `team/board.md` every 60 s) for sibling `DRAFT` lines, reconcile every `Part N` cross-reference against the sibling `.tex`, and append `RECONCILED`. Ownership rule: the lower-numbered Part owns a shared object; you cite, never redefine. Full protocol and board line format: `${CLAUDE_PLUGIN_ROOT}/references/team-protocol.md`.
@@ -115,7 +116,7 @@ This is an iterative loop. You submit the paper to Gemini for external review, f
     echo "" >> "$R"
     LOCK="$PROJECT_ROOT/.review.lock"
     until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT
-    cat papers/latex/$TOPIC.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
+    cat papers/latex/$TOPIC.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and prose quality against this house style: rigorous scholarly prose that prioritizes precision, clarity, and argumentative flow; one identifiable claim per paragraph supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler, signposting, nominalization, or nested subordination; complexity from the subject, not the prose. Quote the weakest three paragraphs with line numbers and rewrite one as a model. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
     GEMINI_RC=$?
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
     echo "reviewer exit: $GEMINI_RC"
@@ -275,7 +276,7 @@ Add to preamble (see `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` for temp
 
 ### Stage 7 — Compile PDF (FINAL — after ALL fixes are done)
 
-**IMPORTANT:** This stage runs AFTER all review fixes (Stage 3-4) AND Codex fixes (Stage 5, and 5b when enabled) AND GrokRxiv sidebar (Stage 6) are complete. When `HUMAN-READABLE: ON`, run the humanizer grep checks from `${CLAUDE_PLUGIN_ROOT}/references/team-protocol.md` first and fix every hit. The PDF must reflect the FINAL state of the .tex file with ALL corrections applied. If you compiled earlier during debugging, you MUST recompile here.
+**IMPORTANT:** This stage runs AFTER all review fixes (Stage 3-4) AND Codex fixes (Stage 5, and 5b when enabled) AND GrokRxiv sidebar (Stage 6) are complete. Always run the filler grep from `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md` first and rewrite every hit; when `HUMAN-READABLE: ON`, also run the humanizer grep checks from `${CLAUDE_PLUGIN_ROOT}/references/team-protocol.md` and fix every hit. The PDF must reflect the FINAL state of the .tex file with ALL corrections applied. If you compiled earlier during debugging, you MUST recompile here.
 
 Run this Bash command:
 

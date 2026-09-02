@@ -1,7 +1,7 @@
 ---
 name: research-agent
 description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel research agents with Gemini peer review, Codex formatting checks, optional Haskell verification, Vercel website deployment, multi-platform social posts, and Slack notifications."
-version: 0.7.12
+version: 0.7.13
 ---
 
 # Research Agent Pipeline — Orchestration
@@ -136,6 +136,10 @@ Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they 
 If you present a plan to the user, the plan MUST explicitly list all 8 of the above as separate line items. Do not collapse them into a phase header.
 
 ---
+
+## Academic Style Standard — HARD GATE
+
+Every paper, the synthesis, the README, and website copy follow `references/style-standard.md`: rigorous scholarly prose with intellectual authority; one identifiable claim per paragraph, supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler ("It is important to note", "This Part seeks to", "the aforementioned", "under the documented search strategy"), no artificial transitions, no repetitive signposting, no "First... Second... Third..." scaffolding unless the enumeration aids comprehension; complexity from the subject matter, never from the prose. Workers and the synthesis agent run the standard's filler grep before their final compile; the orchestrator re-runs it in Phase 4.5 over every paper and records the clean run in `reviews/style-check.md`. Applies to every run regardless of `--human-readable`.
 
 ## Publication Presentation Contract — HARD GATE
 
@@ -337,6 +341,7 @@ Include: abstract, introduction, mathematical framework, results, discussion, re
 Use standard article class, amsmath, amssymb, tikz-cd, hyperref, cleveref.
 Add custom theorem environments (Theorem, Proposition, Lemma, Definition, Remark).
 Keep the paper free of agent activity, review status, confidence labels, provenance fields, audit badges, and internal claim classifications. Use conventional mathematical environments only where they serve the argument.
+Write to the academic style standard in references/style-standard.md (one claim per paragraph, findings before qualifications, no filler or signposting, complexity from the subject and never from the prose) and run its filler grep before your final compile.
 
 Author block:
 $RESEARCH_AUTHOR_NAME
@@ -582,6 +587,8 @@ Codex check: [issues found] → [issues fixed]
 Both gates run in the orchestrator (workers and synthesis are done, Phase 6 has not converted anything yet). Any paper edited here MUST be recompiled (`pdflatex` twice, copy to `papers/pdf/`) before Phase 6 — Phase 8b's freshness check catches stragglers, but the website conversion reads the `.tex`, so do it now.
 
 **Bibliography gate (only when `--bib-gate`).** For every `papers/latex/*.tex` (and `.bib` files if used), list each bibliography entry that carries an arXiv id, DOI, or URL. Resolve each with `WebFetch` (`https://arxiv.org/abs/<id>`, `https://doi.org/<doi>`, or the URL). An entry resolves when the page exists and its title matches the entry (allow minor punctuation differences). Write results to `team/<slug>/bib-check.md` when `team/` exists, otherwise `reviews/<slug>-bib-check.md`, one line per entry: `OK | MISSING | MISMATCH  <key>  <target>  <note>`. Every MISSING/MISMATCH entry is then removed from the paper (and its `\cite` sites rewritten) or replaced by a resolvable reference. The gate passes only when the file has zero MISSING/MISMATCH lines.
+
+**Style checks (every run).** Run the filler grep in `references/style-standard.md` over every `papers/latex/*.tex`. Fix every hit by rewriting the prose, then re-run until clean. Record the final clean run in `reviews/style-check.md`.
 
 **Human-readable checks (only when `--human-readable`).** Run the grep checks in `references/team-protocol.md` ("Humanizer grep checks") over every `papers/latex/*.tex`. Fix every hit by editing the prose (not by adding exceptions), then re-run until clean. Record the final clean run in `reviews/human-readable-check.md`.
 
