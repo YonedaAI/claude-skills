@@ -46,10 +46,14 @@ closed at every gate. This skill is the entry point; the orchestration lives in
    `prompts/` and `references/` directories into that project root so the subagents can read
    them at `prompts/*.md` and `references/*.md`. If they are not present, every agent will
    fail on the first line of its procedure.
-3. **Run the workflow** with the `workflow` tool:
+3. **Make the workflow discoverable.** The `workflow` tool only finds scripts at
+   `.mimocode/workflows/<name>.js` (or `.claude/workflows/`) relative to the run workspace.
+   If `<project>/.mimocode/workflows/research-agent.js` is absent, copy this skill's
+   `workflows/research-agent.js` there first. A global install alone is not enough.
+4. **Run the workflow** with the `workflow` tool:
    `{"operation": {"action": "run", "name": "research-agent", "args": <the JSON>, "workspace": "<project dir>"}}`
    Never pass both `name` and `script`.
-4. **Inspect the result.** `ok: false` means a gate failed — the `reason` names it. Do not
+5. **Inspect the result.** `ok: false` means a gate failed — the `reason` names it. Do not
    report success on a partial run. `agent()` resolves `null` on failure; the workflow already
    treats that as a gate failure, so a `null` anywhere means the run did not complete.
 
