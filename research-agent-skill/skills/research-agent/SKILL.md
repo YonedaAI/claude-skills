@@ -135,12 +135,17 @@ Slack is a **local** MCP server named `slack` in `~/.config/mimocode/mimocode.js
 (`@modelcontextprotocol/server-slack`, bot-token auth, team `TAYUPH83U`). It is MiMoCode-owned —
 never read or write `~/.claude.json` for this.
 
+**The bot is a dedicated app: "Research Agent"** (`user: research_agent`, `B0CDC1197B4`). Do not
+fall back to the AgentHero token — that one posts as "AgentHero Notifications" because it lacks
+`chat:write.customize`. Credentials live at `~/.config/research-agent/slack.env.json` (mode 0600),
+outside every git repo. The app display name carries the identity, so **no per-message
+`username` override is needed**; `chat:write.customize` is there if a custom icon or label is
+ever wanted.
+
 The send tool is **`mcp__slack__slack_post_message`** (arg `channel_id`, then `text`). Other
 tools on that server: `slack_list_channels`, `slack_reply_to_thread`, `slack_add_reaction`,
 `slack_get_channel_history`, `slack_get_thread_replies`, `slack_get_users`,
-`slack_get_user_profile`. Note the bot token can post (`chat:write`) but lacks
-`channels:read`/`channels:history`, so `slack_list_channels` and `slack_get_channel_history`
-will return `missing_scope`. The pipeline does not need them — it posts to the known channel ID.
+`slack_get_user_profile`.
 
 `slack_lint_msg` and the markdown rules above survive any tool rename. Notifications fire at
 five points minimum: worker complete, synthesis, Haskell, website deploy, final summary.

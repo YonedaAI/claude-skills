@@ -24,6 +24,8 @@ oauth_config:
       - reactions:write
       - users:read
       - users.profile:read
+      - channels:write.invites
+      - channels:join
 
 settings:
   org_deploy_enabled: false

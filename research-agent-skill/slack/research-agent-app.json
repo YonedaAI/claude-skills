@@ -20,7 +20,9 @@
         "channels:history",
         "reactions:write",
         "users:read",
-        "users.profile:read"
+        "users.profile:read",
+        "channels:join",
+        "channels:write.invites"
       ]
     }
   },

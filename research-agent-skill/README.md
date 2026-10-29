@@ -113,7 +113,8 @@ project/
 - `pdflatex`, `pandoc`, `ghc`/`cabal`/`stack`, `vercel`, `pdftoppm`
 - A Slack MCP server named `slack` in `~/.config/mimocode/mimocode.jsonc` — local stdio
   (`npx -y @modelcontextprotocol/server-slack`) with `SLACK_BOT_TOKEN` + `SLACK_TEAM_ID`.
-  Send tool: `mcp__slack__slack_post_message`.
+  Send tool: `mcp__slack__slack_post_message`. Bot identity is the dedicated **Research Agent**
+  app (see `slack/research-agent-app.yaml`); credentials in `~/.config/research-agent/slack.env.json`.
 
 ## Layout
 
