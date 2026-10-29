@@ -316,6 +316,27 @@ module.exports = {
 - Copy `images/*.png` to `public/images/`
 - Copy OG images to `public/og/`
 
+### 5b. Codex Website Review (MANDATORY — before any deploy)
+
+Run ONE review of the site source after the build succeeds and BEFORE deploying, with up to 2 fix passes. Resolve `$CODEX` exactly as `prompts/research-worker.md` does; hold the `.review.lock` for one call only:
+
+```bash
+mkdir -p reviews
+ROUND_FILE=reviews/website-codex-review-round-N.md
+echo "---" > "$ROUND_FILE"
+echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" >> "$ROUND_FILE"
+echo "type: website" >> "$ROUND_FILE"
+echo "round: N" >> "$ROUND_FILE"
+echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
+echo "---" >> "$ROUND_FILE"
+LOCK="$PROJECT_ROOT/.review.lock"
+until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+timeout 1800 env -u OPENAI_API_KEY "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the website/ source (do not explore other directories). Review for: broken KaTeX math (raw TeX leaking into HTML), horizontal overflow at 375px width, nav collisions on small screens, missing OG/Twitter meta tags, missing periodic-table page, dead links, and any process/reviewer language in public copy. List issues with file:line references and concrete fixes. End with VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
+rmdir "$LOCK" 2>/dev/null; trap - EXIT
+```
+
+NEEDS_FIX (or no VERDICT): fix every listed issue, rebuild, run round N+1 (max 2 fix passes = 3 invocations). Copy the final round to `reviews/website-codex-review.md` — it must be > 500 bytes and contain a VERDICT line. Do NOT write a SKIPPED stub; a missing review file is a pipeline failure.
+
 ### 6. Build and Deploy
 
 **CRITICAL — Vercel project name MUST match `$PROJECT`**, not the local `website/` directory name. Without this, the deployed URL becomes `website-<hash>.vercel.app` instead of `<project>.vercel.app`, and every run creates a new unrelated project.

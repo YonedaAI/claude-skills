@@ -71,18 +71,28 @@ Acquire, run ONE `"$GEMINI"` or `"$CODEX"` command, release. Edit the paper only
 - **Optional flags in your prompt** (apply only when the prompt says so):
   - `MULTI-AGENT TEAM: ON` — before drafting, write `team/$TOPIC/contract.md` (objects you define, objects you import, notation, Part number), append a `CONTRACT` line to `team/board.md`, then draft. After your draft, append `DRAFT`, wait (bounded, 20 minutes max, polling `team/board.md` every 60 s) for sibling `DRAFT` lines, reconcile every `Part N` cross-reference against the sibling `.tex`, and append `RECONCILED`. Ownership rule: the lower-numbered Part owns a shared object; you cite, never redefine. Full protocol and board line format: `references/team-protocol.md`.
   - `HUMAN-READABLE: ON` — write with the humanizer rules from `references/team-protocol.md`: no em or en dashes, no `---` in prose, none of the AI-vocabulary words listed there, sentence-case headings, straight quotes, no bold-header bullet lists, neutral scholarly voice. Run its grep checks before Stage 7 and fix every hit.
-  - `Haskell is OFF: write no src/ directory` — skip Stage 2 and every other Haskell instruction; report "Haskell: skipped (flag)".
+  - `Haskell is OFF: write no .hs files — src/<topic>/ holds Python/SageMath computational experiments only (Phase D evidence, never proof).` — write NO Haskell. `src/$TOPIC/` may hold Python/SageMath computational experiments only. Report "Haskell: skipped (flag)".
+  - `LEAN: ON` — after the paper is final, write `verification/<topic>-lean-targets.md` with at most 10 mechanization targets (exact names + informal statements matching the paper's definitions and theorems). Do NOT write `.lean` files and never run `lake`; a later phase builds the Lean package.
 
 **GATE CHECK:** Run `test -f papers/latex/$TOPIC.tex && wc -l papers/latex/$TOPIC.tex` — file must exist with 500+ lines.
 
-### Stage 2 — Haskell Code (if math present AND Haskell is ON)
-- Skip this stage entirely when your prompt says `Haskell is OFF`. Do not create `src/`.
-- Create `src/$TOPIC/Main.hs` with runnable demonstrations
-- Create supporting modules for key abstractions
-- Every file must have proper module header and type signatures
-- Main.hs must have a `main` function that demonstrates the paper's key results
+### Stage 2 — Computational Code (if math present)
+- When the prompt says `Haskell is ON (taxonomy layer)`: the shared family classes (structural families, invariants, constructions) already live in `src/Taxonomy/` — import them, never redefine them. Create `src/$TOPIC/Instances.hs` declaring `instance`s of those classes for this volume's physical systems, with type and method names mirroring the paper's definitions (and the `verification/$TOPIC-lean-targets.md` targets). Every file needs a proper module header and type signatures. Put Python/SageMath Phase D experiments in `src/$TOPIC/` as well, each with a short header comment naming the claim it evidences.
+- When the prompt says `Haskell is OFF`: write NO `.hs` files. Python/SageMath experiments go in `src/$TOPIC/` (Phase D evidence). Computational evidence is never proof — the paper must say so wherever such evidence is used.
+- When the paper is pure theory with nothing to run, `src/$TOPIC/` may stay empty.
+- Never write that Haskell code is "verified by Lean" — the honest statement is "executable models validated against kernel-checked specifications".
 
-**GATE CHECK:** Run `ls src/$TOPIC/*.hs 2>/dev/null | wc -l` — at least 1 file if topic has math (0 is correct when Haskell is OFF).
+**GATE CHECK:** Run `ls src/$TOPIC/*.hs 2>/dev/null | wc -l` — at least 1 (Instances.hs) when Haskell is ON and the topic has physical systems; 0 is required when Haskell is OFF.
+
+### Stage 2.5 — Bibliography Check (only when your prompt says `BIB_GATE: ON`)
+
+Run this BEFORE the first review round — `references/writing-standard.md` is authoritative on timing.
+
+1. List every bibliography entry in the paper.
+2. Resolve each one (arXiv, DOI, or publisher page) and record the evidence in `reviews/$TOPIC-bib-check.md` — one row per entry: cite key, resolved URL/DOI, or `UNVERIFIED`.
+3. Entries you cannot resolve must be removed or marked `UNVERIFIED` in the bib-check file and kept out of load-bearing claims. No `[SOURCE REQUIRED]` marker may remain in the `.tex` (grep for it and fix every hit).
+
+**GATE CHECK:** `test -f reviews/$TOPIC-bib-check.md && ! grep -q "SOURCE REQUIRED" papers/latex/$TOPIC.tex && echo "BIB OK" || echo "BIB FAIL"`
 
 ### Stages 3–4 — Gemini Review-Fix Loop (MANDATORY — NEVER skip)
 
@@ -203,7 +213,7 @@ Write the header, then run Codex read-only with its output appended to the same 
     echo "---" >> "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
     until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/$TOPIC.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS (no issues remain) or VERDICT: NEEDS_FIX (issues listed above must be fixed)." </dev/null >> "$ROUND_FILE" 2>&1
+    timeout 1200 env -u OPENAI_API_KEY "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/$TOPIC.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS (no issues remain) or VERDICT: NEEDS_FIX (issues listed above must be fixed)." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
 Gotchas (each one has cost a pipeline run): `</dev/null` is mandatory — without it Codex hangs on "Reading additional input from stdin"; `-s read-only` stops Codex from editing the paper (YOU apply the fixes in Step C); `--skip-git-repo-check` is required when the project is not a git repo; keep the prompt concise and name the single file, otherwise Codex explores the whole repository and the round file balloons.
@@ -254,7 +264,7 @@ The paper's code evidence appendix (the table mapping each computational claim t
     { echo "---"; echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}"; echo "type: code-audit"; echo "paper: $TOPIC"; echo "round: N"; echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo "---"; } > "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
     until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read papers/latex/$TOPIC.tex and ONLY the files under src/$TOPIC/ that its code evidence appendix names (do not explore anything else). For EVERY row of the appendix output one line: ROW <n> | <claim, 10 words max> | SUPPORTS | PARTIAL | NO | <one-sentence reason>. SUPPORTS means the named code actually demonstrates or tests the claim as stated. End with VERDICT: PASS if every row is SUPPORTS, else VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
+    timeout 1200 env -u OPENAI_API_KEY "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read papers/latex/$TOPIC.tex and ONLY the files under src/$TOPIC/ that its code evidence appendix names (do not explore anything else). For EVERY row of the appendix output one line: ROW <n> | <claim, 10 words max> | SUPPORTS | PARTIAL | NO | <one-sentence reason>. SUPPORTS means the named code actually demonstrates or tests the claim as stated. End with VERDICT: PASS if every row is SUPPORTS, else VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
 For every `PARTIAL` or `NO` row: strengthen the code (add the demonstration or property test), narrow the claim in the paper to what the code shows, or remove the row and its claim. Then run round 2. The gate passes only when the last round has every row `SUPPORTS` and `VERDICT: PASS`; copy it to `reviews/$TOPIC-code-audit.md`. If round 2 still has non-SUPPORTS rows, remove those rows and claims from the paper before proceeding and log `WARN: code-audit removed <n> rows`.
@@ -264,9 +274,17 @@ For every `PARTIAL` or `NO` row: strengthen the code (add the demonstration or p
 ### Stage 6 — GrokRxiv Sidebar
 Add to preamble (see `references/paper-format.md` for template).
 
+### Stage 6b — Claim Ledger and Metadata (always)
+
+1. Write `verification/$TOPIC-claim-ledger.md`: one row per theorem/proposition/lemma in the paper — name, one-line statement, proof status (`proved-in-paper` / `conditional` / `conjecture` / `computational-evidence` / `open-problem`), and where it is used. This ledger is a verification artifact, NOT LaTeX — do not put status labels in the `.tex` (only natural mathematical phrasing like "conditional on Conjecture 3.2" is allowed in prose).
+2. Write `verification/$TOPIC-metadata.md`: novelty assessment, literature coverage, proof-status summary, open problems, and connections to other volumes in the series.
+3. When `LEAN: ON`, write `verification/$TOPIC-lean-targets.md` (at most 10 targets, exact names + informal statements matching the paper's definitions and theorems).
+
+**GATE CHECK:** `test -f verification/$TOPIC-claim-ledger.md && test -f verification/$TOPIC-metadata.md && echo "META OK" || echo "META FAIL"`
+
 ### Stage 7 — Compile PDF (FINAL — after ALL fixes are done)
 
-**IMPORTANT:** This stage runs AFTER all review fixes (Stage 3-4) AND Codex fixes (Stage 5, and 5b when enabled) AND GrokRxiv sidebar (Stage 6) are complete. Always run the format check from `references/paper-format.md` and the filler grep from `references/style-standard.md` first and fix every FAIL and rewrite every hit; when `HUMAN-READABLE: ON`, also run the humanizer grep checks from `references/team-protocol.md` and fix every hit. The PDF must reflect the FINAL state of the .tex file with ALL corrections applied. If you compiled earlier during debugging, you MUST recompile here.
+**IMPORTANT:** This stage runs AFTER all review fixes (Stage 3-4) AND Codex fixes (Stage 5, and 5b when enabled) AND GrokRxiv sidebar (Stage 6) are complete. Always run the format check from `references/paper-format.md` and the filler grep from `references/style-standard.md` first and fix every FAIL and rewrite every hit; record the filler-grep result in `reviews/$TOPIC-style-check.md` ending with the line `STYLE GREP: CLEAN` (the publish validator hard-fails without it). When `HUMAN-READABLE: ON`, also run the humanizer grep checks from `references/team-protocol.md`, fix every hit, and record the clean run in `reviews/$TOPIC-human-readable-check.md`. Re-verify that no `[SOURCE REQUIRED]` marker remains and that the claim ledger matches the final paper. The PDF must reflect the FINAL state of the .tex file with ALL corrections applied. If you compiled earlier during debugging, you MUST recompile here.
 
 Run this Bash command:
 
@@ -304,6 +322,9 @@ Before reporting completion, run this single verification block:
     tail -5 reviews/$TOPIC-review.md 2>/dev/null | grep -i "VERDICT" || echo "NO VERDICT FOUND"
     test -f papers/pdf/$TOPIC.pdf && echo "PASS: PDF" || echo "FAIL: PDF"
     test -f images/$TOPIC.png && echo "PASS: Cover image" || echo "FAIL: Cover image"
+    test -f reviews/$TOPIC-style-check.md && grep -q "STYLE GREP: CLEAN" reviews/$TOPIC-style-check.md && echo "PASS: style check" || echo "FAIL: style check"
+    test -f verification/$TOPIC-claim-ledger.md && echo "PASS: claim ledger" || echo "FAIL: claim ledger"
+    test -f verification/$TOPIC-metadata.md && echo "PASS: metadata" || echo "FAIL: metadata"
 
 If ANY gate check shows FAIL, go back and complete that stage. Do NOT report success with failures.
 

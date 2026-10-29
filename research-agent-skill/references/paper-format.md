@@ -48,7 +48,8 @@ Do not change the font size, the margins, or the paragraph settings. Do not add 
 \author{$RESEARCH_AUTHOR_NAME\\
   \small $RESEARCH_COLLABORATION, $RESEARCH_INSTITUTION\\
   \small $RESEARCH_LOCATION\\
-  \small \texttt{$RESEARCH_AUTHOR_EMAIL}}
+  \small \texttt{$RESEARCH_AUTHOR_EMAIL}\\
+  \small \texttt{$RESEARCH_AUTHOR_URL}}
 \date{Month YYYY}
 ```
 

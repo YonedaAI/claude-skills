@@ -31,7 +31,8 @@ closed at every gate. This skill is the entry point; the orchestration lives in
 | `--project-path <path>` | where to create the project | current working directory |
 | `--github-org <org>` | GitHub org for the PR | `YonedaAI` |
 | `--slack-channel <ID>` | Slack channel for notifications | `$RESEARCH_SLACK_CHANNEL` or `C0AK269AVSA` |
-| `--no-haskell` | skip Haskell/Lean verification | enabled |
+| `--no-haskell` | skip the Haskell taxonomy layer | enabled |
+| `--lean` | run the Lean verification phase (`prompts/lean-verifier.md`) | off |
 | `--no-website` | skip website build + deploy | enabled |
 | `--no-social` | skip social posts | enabled |
 | `--human-readable` | humanizer grep gate before compile | off |
@@ -46,16 +47,34 @@ closed at every gate. This skill is the entry point; the orchestration lives in
    `prompts/` and `references/` directories into that project root so the subagents can read
    them at `prompts/*.md` and `references/*.md`. If they are not present, every agent will
    fail on the first line of its procedure.
-3. **Make the workflow discoverable.** The `workflow` tool only finds scripts at
+3. **Make the workflow discoverable** (only when the `workflow` tool is present): if
+   `<project>/.mimocode/workflows/research-agent.js` is absent, copy this skill's
+   `workflows/research-agent.js` there first — the tool only finds scripts at
    `.mimocode/workflows/<name>.js` (or `.claude/workflows/`) relative to the run workspace.
-   If `<project>/.mimocode/workflows/research-agent.js` is absent, copy this skill's
-   `workflows/research-agent.js` there first. A global install alone is not enough.
-4. **Run the workflow** with the `workflow` tool:
+   The tool is registered only at process launch (`MIMOCODE_EXPERIMENTAL_WORKFLOW_TOOL=true`);
+   if it is absent from the tool surface, do NOT try to enable it mid-session — use the
+   subagent orchestration in step 4.
+4. **Orchestrate with subagents (default path).** Spawn one `general` subagent per unit via the
+   actor tool and hold the gate between phases. Sequence (mirrors `workflows/research-agent.js`):
+   1. Setup — dirs, local-author git config, `.gitignore`, and AGY+Codex PONG tests. Hard gate:
+      no worker spawns until BOTH reviewers answer PONG (run the PONG probe with
+      `AGY_REVIEW_MIN_CHARS=1`; the shim's 500-char floor rejects a genuine PONG).
+   2. Knowledge base — one agent writes `.knowledge-base.md` from `sources/`.
+   3. Workers — one agent per topic in parallel, each executing `prompts/research-worker.md`
+      in full. Gate: every worker reports `status:"ok"` with `reviewRounds >= 1`.
+   4. Synthesis — one agent executes `prompts/synthesis-agent.md`; same review gate.
+   5. Verification per args flags — Lean (`prompts/lean-verifier.md`: scaffold → one module
+      per topic in parallel → assembler with the single consolidated Codex review) and/or
+      Haskell (`prompts/haskell-verifier.md`).
+   6. Website — `prompts/website-builder.md` (includes Vercel deploy).
+   7. Social — `prompts/social-posts.md`.
+   8. Publish — `prompts/pipeline-validator.md`: validator → README → git/PR → Slack summary.
+   Gates are fail-closed: on failure, fix and re-run only the failed unit. A missing or
+   malformed report means that unit failed. Never report success on a partial run.
+5. **Alternative: run the workflow** with the `workflow` tool when it IS available:
    `{"operation": {"action": "run", "name": "research-agent", "args": <the JSON>, "workspace": "<project dir>"}}`
-   Never pass both `name` and `script`.
-5. **Inspect the result.** `ok: false` means a gate failed — the `reason` names it. Do not
-   report success on a partial run. `agent()` resolves `null` on failure; the workflow already
-   treats that as a gate failure, so a `null` anywhere means the run did not complete.
+   Never pass both `name` and `script`. `ok: false` means a gate failed — the `reason` names
+   it. A `null` agent result means the run did not complete.
 
 ### `args` shape
 
@@ -67,6 +86,7 @@ closed at every gate. This skill is the entry point; the orchestration lives in
   "githubOrg": "YonedaAI",
   "slackChannel": "C0AK269AVSA",
   "noHaskell": false,
+  "lean": false,
   "noWebsite": false,
   "noSocial": false,
   "humanReadable": false,

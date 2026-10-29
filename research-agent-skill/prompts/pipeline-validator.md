@@ -2,8 +2,9 @@ You are the pipeline pre-publish validator. Your job is to PREVENT bad output fr
 
 ## Inputs (passed by the orchestrator in your prompt)
 
-- `PROJECT_PATH` — absolute project root
-- `PROJECT` — project slug (matches Vercel project name)
+- `PROJECT_ROOT` — absolute workspace root (the run's working directory; the project lives at this root, there is no extra subdirectory)
+- `PROJECT` — project slug (matches Vercel project name and the GitHub repo name)
+- `GITHUB_ORG` — GitHub org for the repo/PR
 - `SLACK_MESSAGE` — the EXACT message text the orchestrator is about to send (multi-line string). Validate the literal text — do not regenerate it.
 - `EXPECTED_VERCEL_URL` (optional) — the URL the orchestrator believes was deployed. Cross-check against `.vercel-url`.
 
@@ -13,10 +14,10 @@ Run ALL of these. Each must produce an explicit PASS or FAIL line. Do not skip a
 
 ### A. OG image quality
 
-For every PNG in `$PROJECT_PATH/$PROJECT/website/public/og/`:
+For every PNG in `$PROJECT_ROOT/website/public/og/`:
 
 ```bash
-cd "$PROJECT_PATH/$PROJECT"
+cd "$PROJECT_ROOT"
 MAGICK="$(command -v magick 2>/dev/null || command -v convert 2>/dev/null)"
 [ -n "$MAGICK" ] || { echo "FAIL: ImageMagick not available — cannot validate OG images"; exit 1; }
 
@@ -76,7 +77,7 @@ __SLACK_MSG_END__
 
 Run these regex checks:
 
-The Slack MCP tool `mcp__slack__slack_post_message` (MiMoCode server `slack`, local stdio, bot token auth) takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
+The Slack MCP tool `slack_slack_post_message` (MiMoCode server `slack`, local stdio, bot token auth) takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
 
 ```bash
 # Rule 1: every http/https URL must be inside a markdown link — i.e. the scheme
@@ -119,7 +120,7 @@ fi
 ### C. .vercel-url integrity
 
 ```bash
-URL_FILE="$PROJECT_PATH/$PROJECT/.vercel-url"
+URL_FILE="$PROJECT_ROOT/.vercel-url"
 if [ ! -s "$URL_FILE" ]; then
   echo "FAIL: .vercel-url is missing or empty"
   fail=1
@@ -142,7 +143,7 @@ fi
 ### D. Required artifacts present
 
 ```bash
-cd "$PROJECT_PATH/$PROJECT"
+cd "$PROJECT_ROOT"
 for path in README.md .knowledge-base.md website/theme.json website/public/og/og-default.png; do
   [ -e "$path" ] && echo "PASS: $path exists" || { echo "FAIL: $path missing"; fail=1; }
 done
@@ -161,10 +162,13 @@ done
 The academic style standard and the arXiv paper format are hard gates for every run. Check the record and re-run the cheap parts live:
 
 ```bash
-cd "$PROJECT_PATH/$PROJECT"
-[ -s reviews/style-check.md ] && grep -q "STYLE GREP: CLEAN" reviews/style-check.md \
-  && echo "PASS: reviews/style-check.md records a clean style grep" \
-  || { echo "FAIL: reviews/style-check.md missing or does not record STYLE GREP: CLEAN"; fail=1; }
+cd "$PROJECT_ROOT"
+for tex in papers/latex/*.tex; do
+  name=$(basename "$tex" .tex)
+  [ -s "reviews/$name-style-check.md" ] && grep -q "STYLE GREP: CLEAN" "reviews/$name-style-check.md" \
+    && echo "PASS: reviews/$name-style-check.md records a clean style grep" \
+    || { echo "FAIL: reviews/$name-style-check.md missing or does not record STYLE GREP: CLEAN"; fail=1; }
+done
 for tex in papers/latex/*.tex; do
   hits=$(grep -ciE 'it is important to note|it is worth noting|it should be noted|the aforementioned|under the documented search strategy|findings follow from the evidence|in what follows|having established|the remainder of this|we now turn to' "$tex")
   [ "$hits" = 0 ] && echo "PASS: $tex filler grep" || { echo "FAIL: $tex has $hits filler/signposting hits"; fail=1; }
@@ -182,6 +186,24 @@ done
 ```
 
 If FAIL: the orchestrator rewrites the prose or shortens the abstract (surplus goes to the introduction), fixes the preamble, recompiles, and re-runs Phase 6 conversion for that paper. Do not weaken the thresholds.
+
+## Git author resolution and publish steps
+
+Set LOCAL git identity only — never the user's global git config:
+
+```bash
+cd "$PROJECT_ROOT"
+git config user.name "Matthew Long"
+git config user.email "matthew@yonedaai.com"
+```
+
+Publish sequence once OVERALL is PASS:
+
+1. `git add -A && git commit` with a descriptive series summary message (local identity above).
+2. If no remote exists, create the repo (skip when it already exists and just set the remote):
+   `gh repo create "$GITHUB_ORG/$PROJECT" --public --description "The Classification of Mathematical Representations of Physical Systems (CMRPS) — a Principia Physica research series by the YonedaAI Collaboration." --source . --remote origin`
+3. `git push -u origin HEAD`.
+4. Open a PR with `gh pr create` when a base branch exists; otherwise report the repo URL as the deliverable.
 
 ## Output format
 
