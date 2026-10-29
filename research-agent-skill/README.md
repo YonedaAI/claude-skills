@@ -111,7 +111,9 @@ project/
   (default `/Users/mlong/.local/bin/agy-review-shim`)
 - `codex` CLI (absolute path; Node is managed by `fnm`)
 - `pdflatex`, `pandoc`, `ghc`/`cabal`/`stack`, `vercel`, `pdftoppm`
-- A Slack MCP server named `slack` in `~/.config/mimocode/mimocode.jsonc`
+- A Slack MCP server named `slack` in `~/.config/mimocode/mimocode.jsonc` — local stdio
+  (`npx -y @modelcontextprotocol/server-slack`) with `SLACK_BOT_TOKEN` + `SLACK_TEAM_ID`.
+  Send tool: `mcp__slack__slack_post_message`.
 
 ## Layout
 

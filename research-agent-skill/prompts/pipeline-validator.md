@@ -76,7 +76,7 @@ __SLACK_MSG_END__
 
 Run these regex checks:
 
-The Slack MCP tool (MiMoCode server `slack`, invoked as `mcp__slack__<tool>` — discover the exact send-message tool name after the server connects) takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
+The Slack MCP tool `mcp__slack__slack_post_message` (MiMoCode server `slack`, local stdio, bot token auth) takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
 
 ```bash
 # Rule 1: every http/https URL must be inside a markdown link — i.e. the scheme

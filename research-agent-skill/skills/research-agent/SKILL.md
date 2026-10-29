@@ -125,10 +125,19 @@ non-interactive subshells — that is why the absolute-path resolver exists).
 
 ## Slack
 
-Slack is an MCP server named `slack` (see `~/.config/mimocode/mimocode.jsonc`). Discover the
-real tool name after it connects and use `mcp__slack__<tool>`. `slack_lint_msg` and the
-markdown rules above survive any tool rename. Notifications fire at five points minimum:
-worker complete, synthesis, Haskell, website deploy, final summary.
+Slack is a **local** MCP server named `slack` in `~/.config/mimocode/mimocode.jsonc`
+(`@modelcontextprotocol/server-slack`, bot-token auth, team `TAYUPH83U`). It is MiMoCode-owned —
+never read or write `~/.claude.json` for this.
+
+The send tool is **`mcp__slack__slack_post_message`** (arg `channel_id`, then `text`). Other
+tools on that server: `slack_list_channels`, `slack_reply_to_thread`, `slack_add_reaction`,
+`slack_get_channel_history`, `slack_get_thread_replies`, `slack_get_users`,
+`slack_get_user_profile`. Note the bot token can post (`chat:write`) but lacks
+`channels:read`/`channels:history`, so `slack_list_channels` and `slack_get_channel_history`
+will return `missing_scope`. The pipeline does not need them — it posts to the known channel ID.
+
+`slack_lint_msg` and the markdown rules above survive any tool rename. Notifications fire at
+five points minimum: worker complete, synthesis, Haskell, website deploy, final summary.
 
 ## Layout
 
