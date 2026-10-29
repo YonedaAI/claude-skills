@@ -238,7 +238,7 @@ combining or reordering. That prompt is the authoritative procedure. Key invaria
 - ${codeAudit ? "CODE_AUDIT: ON — run the code evidence appendix audit." : "CODE_AUDIT: OFF."}
 - ${humanReadable ? "HUMAN_READABLE: ON — run the humanizer grep checks before the compile." : "HUMAN_READABLE: OFF."}
 - ${bibGate ? "BIB_GATE: ON — resolve every bibliography entry and write reviews/<topic>-bib-check.md BEFORE the first review round (references/writing-standard.md is authoritative)." : "BIB_GATE: OFF."}
-- ${noHaskell ? "Haskell is OFF: write no .hs files — src/<topic>/ holds Python/SageMath computational experiments only (Phase D evidence, never proof)." : "Haskell is ON (taxonomy layer): family classes live in src/Taxonomy/ (generated before the run from docs/ontology.md) — do NOT redefine them. Write src/<topic>/Instances.hs declaring instances of those classes for this volume's physical systems, with names mirroring the paper's definitions and the lean targets. Python/SageMath Phase D experiments live in src/<topic>/ too. Haskell is computational evidence: never claim it is 'verified by Lean'."}
+- ${noHaskell ? "Haskell is OFF: write no .hs files — src/<topic>/ holds Python/SageMath computational experiments only (computational evidence, never proof)." : "Haskell is ON (taxonomy layer): family classes live in src/Taxonomy/ (the shared taxonomy package prepared for the run) — do NOT redefine them. Write src/<topic>/Instances.hs declaring instances of those classes for this paper's systems, with names mirroring the paper's definitions and the lean targets. Python/SageMath computational experiments live in src/<topic>/ too. Haskell is computational evidence: never claim it is 'verified by Lean'."}
 - ${lean ? "LEAN: ON — write verification/<topic>-lean-targets.md (at most 10 mechanization targets, exact names + informal statements). Do NOT write .lean files and never run lake; a later phase builds the Lean package." : "LEAN: OFF."}
 - Paper geometry is \\usepackage[margin=1in]{geometry} (one-inch margins). Never 12pt.
 - Add the GrokRxiv sidebar only AFTER the scientific review loop completes.
@@ -312,7 +312,7 @@ ${workerResults.map((r) => `- ${r.topic}: ${r.reviewVerdict}, ${r.reviewRounds} 
 Unify all papers into one coherent synthesis at papers/latex/synthesis.tex. MiMo writes it;
 AGY reviews it and Codex checks its formatting — same review-fix loops and the same
 .review.lock mutex as prompts/research-worker.md. Never self-review. Max 3 AGY rounds.
-Also update docs/periodic-table.md so proven and conjectural relationships stay distinguished,
+Also update the run's classification chart (docs/periodic-table.md when present) so proven and conjectural relationships stay distinguished,
 and send ONE Slack notification to SLACK_CHANNEL via slack_slack_post_message (lint first,
 rules in prompts/pipeline-validator.md) when the synthesis is final.
 
@@ -543,7 +543,7 @@ You are the website builder. Read prompts/website-builder.md and follow it exact
 Convert every paper to HTML with pandoc into docs/papers/, build the Next.js site under
 website/, generate the designed OG cards and run the OG validation gate, then run the Codex
 website review (mandatory, before deploy) and only then deploy with vercel. Include
-docs/periodic-table.md as its own site page. When the deploy is live, send ONE Slack
+any run-level chart (docs/periodic-table.md when present) as its own site page. When the deploy is live, send ONE Slack
 notification to SLACK_CHANNEL via slack_slack_post_message (lint first, rules in
 prompts/pipeline-validator.md).
 

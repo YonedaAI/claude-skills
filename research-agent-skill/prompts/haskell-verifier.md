@@ -172,7 +172,7 @@ If Liquid Haskell is NOT available, skip this phase but note it in the report. D
 
 For each topic, compare the Haskell side against its Lean counterpart and write `verification/<topic>-cross-audit.md`:
 
-1. Every family class / invariant / construction in `src/Taxonomy/` has a matching name in `lean/` (or in `docs/ontology.md` when not yet formalized).
+1. Every family class / invariant / construction in `src/Taxonomy/` has a matching name in `lean/` (or in the run's shared ontology document when not yet formalized).
 2. Every `instance` in `src/<topic>/Instances.hs` names a system defined in the paper and in `lean/Cmrps/<Module>.lean`.
 3. Record each row as `MIRRORED`, `PARTIAL`, or `MISMATCH` (give both names and a one-line fix). The Lean statement is normative — never resolve a MISMATCH by weakening Lean.
 4. Consolidate every row into `verification/cross-audit-registry.md`.
