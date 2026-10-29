@@ -1,14 +1,15 @@
-# research-agent
+# research-agent — MiMoCode
 
-A Claude Code plugin that orchestrates a multi-agent research pipeline. Takes comma-separated topics, spins up parallel research agents, and produces peer-reviewed papers with Haskell formal verification, a Vercel-deployed website, and social media posts.
+A MiMoCode Dynamic Workflow that orchestrates a multi-agent research pipeline. MiMo drafts
+every artifact; AGY (Gemini) and Codex review independently. Takes comma-separated topics,
+produces peer-reviewed arXiv-style papers with optional Haskell/Lean formal verification, a
+deployed website, social posts, and Slack notifications.
 
 ## Usage
 
 ```
-/research-agent "topic-a,topic-b,topic-c" --perspective "your framing"
+/research-agent "topic-a, topic-b, topic-c" --perspective "your framing"
 ```
-
-### Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -16,110 +17,122 @@ A Claude Code plugin that orchestrates a multi-agent research pipeline. Takes co
 | `--project <name>` | Project directory name | Derived from first topic |
 | `--project-path <path>` | Where to create the project | Current working directory |
 | `--github-org <org>` | GitHub organization | `YonedaAI` |
-| `--no-haskell` | Skip Haskell formal verification | Enabled |
-| `--no-website` | Skip website build + Vercel deploy | Enabled |
-| `--no-social` | Skip social media posts | Enabled |
 | `--slack-channel <ID>` | Slack channel for notifications | `$RESEARCH_SLACK_CHANNEL` or `C0AK269AVSA` |
-| `--multi-agent-team` | Workers share interface contracts + a team board, integration gate before synthesis | Off |
-| `--human-readable` | Humanizer writing rules + grep checks before final compile | Off |
-| `--code-audit` | Codex read-only audit of the code evidence appendix (every row must be SUPPORTS) | Off |
-| `--bib-gate` | Resolve every arXiv/DOI/URL bibliography entry before final compile | Off |
-| `--plan-critique` | Codex critique of the plan before Phase 2 (max 3 rounds) | Off |
-| `--codex-model <m>` | Model for direct `codex exec` calls (`RESEARCH_CODEX_MODEL`) | `gpt-5.6-sol` |
-| `--codex-effort <e>` | Reasoning effort for `codex exec` (`RESEARCH_CODEX_EFFORT`) | `high` |
+| `--no-haskell` | Skip Haskell/Lean verification | Enabled |
+| `--no-website` | Skip website build + deploy | Enabled |
+| `--no-social` | Skip social posts | Enabled |
+| `--human-readable` | Humanizer grep gate before compile | Off |
+| `--code-audit` | Audit the code evidence appendix | Off |
+| `--bib-gate` | Resolve every bibliography entry first | Off |
+| `--plan-critique` | Critique the plan before Phase 2 | Off |
 
-### Writing standard (every run, not a flag)
+## Who writes, who reviews
 
-Every paper, the synthesis, the README and the website copy are written to the academic style standard in `references/style-standard.md`: scholarly prose with intellectual authority, one identifiable claim per paragraph, findings stated before their qualifications, ordinary words where they are exactly as precise, no filler or signposting, complexity from the subject and never from the prose. `references/paper-format.md` carries the section-by-section conventions for the arXiv-style paper (abstract states the result first, introduction states the contribution first, conclusion says what was established, what failed and what remains open). The standard's filler grep is a hard gate in Phase 4.5 and its clean run is recorded in `reviews/style-check.md`. `--human-readable` adds the surface-level humanizer rules on top.
+| Artifact | Author | Independent reviewer |
+|---|---|---|
+| Research papers | MiMo (`xiaomi/mimo-v2.6-pro`) | AGY (Gemini 4 Argon) |
+| Synthesis paper | MiMo (`xiaomi/mimo-v2.6-pro`) | AGY (Gemini 4 Argon) |
+| Haskell / Lean code | MiMo (`xiaomi/mimo-v2.6-pro`) | Codex (`gpt-5.6-sol`) |
+| Website / publication code | MiMo (`xiaomi/mimo-v2.6-flash`) | Codex (`gpt-5.6-sol`) |
+| Knowledge base, social | MiMo (`xiaomi/mimo-v2.6-flash`) | — |
+
+**The author never reviews its own work.** That is the load-bearing rule of the whole design.
+
+> `mimo-v2.6-pro-ultraspeed` is not served by this plan (`400 Not supported model`) and is
+> never referenced.
 
 ## Pipeline
 
 ```
 Phase 1: Setup ──> Phase 2: Knowledge Base ──> Phase 3: Workers (parallel)
-                                                  │
-                              ┌───────────────────┼───────────────────┐
-                              ▼                   ▼                   ▼
-                         Topic A              Topic B              Topic N
-                         Draft (20+ pages)    Draft (20+ pages)    Draft (20+ pages)
-                         Gemini Peer Review   Gemini Peer Review   Gemini Peer Review
-                         Claude Fix           Claude Fix           Claude Fix
-                         Codex LaTeX Check    Codex LaTeX Check    Codex LaTeX Check
-                         Claude Fix           Claude Fix           Claude Fix
-                         Compile PDF          Compile PDF          Compile PDF
-                         Cover Image          Cover Image          Cover Image
-                         Slack ✓              Slack ✓              Slack ✓
-                              │                   │                   │
-                              └───────────────────┼───────────────────┘
-                                                  ▼
-Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Vercel
+                                                   │
+                               ┌───────────────────┼───────────────────┐
+                               ▼                   ▼                   ▼
+                          Topic A              Topic B              Topic N
+                          Draft (20+ pages)    Draft (20+ pages)    Draft (20+ pages)
+                          AGY Peer Review      AGY Peer Review      AGY Peer Review
+                          MiMo Fix             MiMo Fix             MiMo Fix
+                          Codex LaTeX Check    Codex LaTeX Check    Codex LaTeX Check
+                          MiMo Fix             MiMo Fix             MiMo Fix
+                          Compile PDF          Compile PDF          Compile PDF
+                          Cover Image          Cover Image          Cover Image
+                               │                   │                   │
+                               └───────────────────┼───────────────────┘
+                                                   ▼
+Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Deploy
                                                           │
                                                    Phase 7: Social Posts
                                                           │
-                                                   Phase 8: Git + GitHub + Slack Summary
+                                                   Phase 8: Validate + Git + GitHub + Slack
 ```
 
-## Agents
+Every phase is an `agent()` call in `workflows/research-agent.js`. Every gate fails closed:
+an agent that resolves `null` aborts the run, and a `SKIPPED` review stub is a failure.
 
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `knowledge-base-builder` | Sonnet | Reads sources, builds structured knowledge base |
-| `research-worker` | Opus | Drafts arxiv-style LaTeX papers + Haskell code |
-| `synthesis-agent` | Opus | Unifies all papers into coherent synthesis |
-| `haskell-verifier` | Opus | Compiles GHC, runs tests, fixes errors |
-| `website-builder` | Sonnet | Builds Next.js 14 dark-themed research site |
-| `og-image-generator` | Haiku | Generates 1200x630 OG images from covers |
-| `social-posts` | Sonnet | Creates posts for Twitter/X, LinkedIn, Facebook, Bluesky |
+## Review pipeline
 
-## Review Pipeline
+1. **AGY peer review** via `agy-review-shim` (`$RESEARCH_GEMINI_BIN`, model label
+   `$RESEARCH_GEMINI_MODEL`, default `gemini-4-argon`) — adversarial review by an external LLM.
+   Max **3** rounds. The plain `gemini` CLI is deprecated and never used.
+2. **Codex formatting check** via `codex exec -s read-only` — LaTeX compilation, references,
+   styling. Max **2** fix passes.
 
-Every paper goes through two mandatory, externally-enforced review cycles:
+Both are serialized through a project-wide `.review.lock` mutex, and a sanity test of both
+reviewers runs in Phase 1 before any worker spawns. Missing or stub reviews abort the run.
 
-1. **Gemini peer review** via the `agy-review-shim` (`$RESEARCH_GEMINI_BIN`; model label `$RESEARCH_GEMINI_MODEL`, default `gemini-4-argon`, routed to Antigravity's "Gemini 4 Argon (High)") — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the shim command and write the output to disk. Gate checks verify the review file exists and has substantive content. The plain `gemini` CLI is deprecated and is never used as a fallback; the shim's stderr log is `${TMPDIR:-/tmp}/agy-review-shim.err`.
-2. **Codex formatting check** — LaTeX compilation, references, styling issues. Each worker MUST run the direct `codex exec -s read-only` command (sub-agents have no Skill tool, so `codex:rescue` is orchestrator-only).
+## Models
 
-All reviewer calls are serialized through a project-wide `.review.lock` mutex (concurrent `agy`/`codex` calls return empty output), and a 60-second sanity test of both reviewers runs in Phase 1 before any worker spawns.
+`xiaomi/mimo-v2.6-pro` for reasoning-heavy work, `xiaomi/mimo-v2.6-flash` for volume work.
+Both against `https://token-plan-sgp.xiaomimimo.com/v1`. Claude is never used for drafting.
 
-Both cycles include fix iterations (max 2 per cycle). After all workers complete, the orchestrator runs a post-worker verification pass that checks every `reviews/$TOPIC-review.md` file exists with real content. Missing or stub reviews trigger a re-run. The website also gets a Codex review before Vercel deployment.
-
-## Output Structure
+## Output structure
 
 ```
 project/
 ├── papers/latex/*.tex          # LaTeX sources with GrokRxiv sidebar
 ├── papers/pdf/*.pdf            # Compiled PDFs
-├── reviews/*.md                # Gemini peer review feedback
-├── src/*/                      # Haskell formal verification code
+├── reviews/*.md                # AGY peer review rounds
+├── src/*/                      # Haskell/Lean formal verification
 ├── images/*.png                # Cover images (300 DPI)
 ├── docs/papers/*.html          # Pandoc HTML conversions
-├── website/                    # Next.js 14 static site (deployed to Vercel)
+├── website/                    # Next.js site (deployed)
 │   └── public/og/*.png         # Open Graph images
 ├── posts/{twitter,linkedin,facebook,bluesky}/
-│                               # Platform-specific social posts
-├── .knowledge-base.md          # Structured knowledge base
-└── README.md                   # Project overview
+├── prompts/                    # stage procedures this run executed
+├── references/                 # writing + format standards
+├── .knowledge-base.md
+└── README.md
 ```
 
 ## Requirements
 
-- Claude Code with plugins enabled
-- `agy` (Antigravity) CLI plus the `agy-review-shim` wrapper at `$RESEARCH_GEMINI_BIN` (default `/Users/mlong/.local/bin/agy-review-shim`; the plain `gemini` CLI no longer works)
-- `pdflatex` (LaTeX compilation)
-- `pandoc` (LaTeX to HTML conversion)
-- `ghc` / `cabal` / `stack` (Haskell verification)
-- `vercel` CLI (website deployment)
-- `pdftoppm` from poppler (cover image generation)
-- Codex plugin (`codex@openai-codex`)
-- Slack MCP (notifications)
+- MiMoCode with the Dynamic Workflow feature
+- `agy` (Antigravity) CLI + `agy-review-shim` at `$RESEARCH_GEMINI_BIN`
+  (default `/Users/mlong/.local/bin/agy-review-shim`)
+- `codex` CLI (absolute path; Node is managed by `fnm`)
+- `pdflatex`, `pandoc`, `ghc`/`cabal`/`stack`, `vercel`, `pdftoppm`
+- A Slack MCP server named `slack` in `~/.config/mimocode/mimocode.jsonc`
 
-## Installation
+## Layout
 
-```bash
-# Add the marketplace (one-time)
-claude plugin marketplace add /path/to/claude-skills --scope user
-
-# Install the plugin
-claude plugin install research-agent@local-skills --scope user
 ```
+research-agent-skill/
+├── skills/research-agent/SKILL.md   # MiMoCode skill entry point
+├── workflows/research-agent.js      # 8-phase Dynamic Workflow
+├── prompts/*.md                     # stage procedures (frontmatter-free)
+└── references/*.md                  # writing + format standards
+```
+
+`references/` are the standards of record. When the skill and a reference disagree, the
+reference wins.
+
+## Branches
+
+| Branch | Host |
+|---|---|
+| `claude` | Claude Code plugin format (`.claude-plugin/`, `commands/`, `agents/`) |
+| `mimo` | MiMoCode skill + Dynamic Workflow (this branch) |
+| `codex/research-agent-native-harness` | Codex native collaboration adapter |
 
 ## License
 

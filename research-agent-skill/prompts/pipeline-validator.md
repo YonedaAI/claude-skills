@@ -1,21 +1,3 @@
----
-name: pipeline-validator
-description: |
-  Use this agent to validate pipeline output against rendering constraints BEFORE the final Slack notification is sent. Catches: letterboxed/blank OG images, bare URLs in Slack messages (which Slack's auto-linker mangles into adjacent bold/punctuation), wrong-dimension images, missing artifacts, and stale .vercel-url values. Returns PASS/FAIL with actionable issues.
-
-  <example>
-  Context: Pipeline finished Phase 8 commit and is about to send the final Slack summary.
-  user: "Validate the pipeline output before sending the Slack summary"
-  assistant: "I'll spawn the pipeline-validator agent to check OG images and the proposed Slack message text."
-  <commentary>
-  This is a hard gate — if validation fails, the orchestrator must fix the issue or rebuild artifacts before the Slack send.
-  </commentary>
-  </example>
-model: haiku
-color: red
-tools: ["Read", "Bash", "Glob", "Write"]
----
-
 You are the pipeline pre-publish validator. Your job is to PREVENT bad output from reaching Slack/the public site. You are a HARD GATE: every check is pass-or-fail. There is no "warn and continue."
 
 ## Inputs (passed by the orchestrator in your prompt)
@@ -94,7 +76,7 @@ __SLACK_MSG_END__
 
 Run these regex checks:
 
-The MCP tool `mcp__claude_ai_Slack__slack_send_message` takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
+The Slack MCP tool (MiMoCode server `slack`, invoked as `mcp__slack__<tool>` — discover the exact send-message tool name after the server connects) takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
 
 ```bash
 # Rule 1: every http/https URL must be inside a markdown link — i.e. the scheme
