@@ -92,17 +92,23 @@ Do not reference it anywhere.
 ## Reviewers — preserve exactly
 
 These are external CLIs. The resolver blocks live in `prompts/research-worker.md` and its
-siblings and must be run verbatim (Node is managed by `fnm`, so bare `gemini`/`codex` fail in
-non-interactive subshells — that is why the absolute-path resolver exists).
+siblings and must be run verbatim.
+
+**Codex is resolved at runtime, never pinned.** The standalone install tracks the installed
+version via `~/.codex/packages/standalone/current`, so `command -v codex` follows upgrades.
+The resolver deliberately skips `fnm` node-version installs: those pin a stale npm release
+(observed: 0.145.0 while standalone was 0.165.0), fail to parse the models cache
+(`missing field 'base_instructions'`), and then reject models the installed CLI supports.
 
 | Var | Default | Notes |
 |---|---|---|
 | `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | the only AGY path |
-| `RESEARCH_GEMINI_MODEL` | `gemini-4-argon` | label "Gemini 4 Argon (High)" |
+| `RESEARCH_GEMINI_MODEL` | `gemini-4-argon-high` | label written into review files |
+| `AGY_REVIEW_MODEL` | `Gemini 4 Argon (High)` | **what agy actually runs** — effort is in the name; the shim ignores the caller's `-m` |
 | `AGY_REVIEW_EFFORT` | *(leave unset)* | `agy` 1.1.23+ rejects `--effort` on effort-bearing names |
-| `RESEARCH_CODEX_BIN` | `…/fnm/node-versions/v24.14.0/installation/bin/codex` | absolute path |
-| `RESEARCH_CODEX_MODEL` | `gpt-5.6-sol` | |
-| `RESEARCH_CODEX_EFFORT` | `high` | |
+| `RESEARCH_CODEX_BIN` | *(unset — resolved at runtime)* | optional override; otherwise `command -v codex`, skipping fnm paths |
+| `RESEARCH_CODEX_MODEL` | `gpt-6.1-sol` | formatting/code reviewer |
+| `RESEARCH_CODEX_EFFORT` | `medium` | mechanical lint — high buys little here |
 
 - The plain `gemini` CLI is **deprecated** and exits immediately. Never fall back to it.
 - Every reviewer call holds the project-wide `.review.lock` mutex — one call per lock hold.

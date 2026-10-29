@@ -129,7 +129,7 @@ You are the pipeline setup agent. Do ONLY this, then report.
      must never be used). Pipe the string "reply with exactly: PONG" through it and echo the
      result and the exit code.
    - Codex: resolve \`codex\` to an absolute path the same way, then run
-     \`codex exec -m gpt-5.6-sol -c 'model_reasoning_effort="low"' -s read-only --skip-git-repo-check "reply with exactly: PONG"\`
+     \`codex exec -m gpt-6.1-sol -c 'model_reasoning_effort="low"' -s read-only --skip-git-repo-check "reply with exactly: PONG"\`
      and echo the result and the exit code.
    If either test does not return usable output, you MUST fail with a clear reason. Do not
    write a stub, do not continue, do not fake the result.
@@ -520,6 +520,6 @@ Report JSON only:
     social,
     publish,
     drafter: MIMO_PRO,
-    reviewers: ["AGY (Gemini 4 Argon)", "Codex (gpt-5.6-sol)"],
+    reviewers: ["AGY (Gemini 4 Argon High)", "Codex (gpt-6.1-sol)"],
   }
 }

@@ -14,14 +14,31 @@ You are a research paper worker. You write rigorous, arxiv-style academic papers
 
 ```bash
 GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
-CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
+# AGY effort is carried by the model NAME; the shim passes --effort only if AGY_REVIEW_EFFORT
+# is set, and agy >=1.1.23 rejects --effort on effort-bearing model names. So set the model,
+# not the effort flag. (gemini-4-argon-high -> "Gemini 4 Argon (High)")
+export AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-Gemini 4 Argon (High)}"
+# Resolve codex at RUNTIME — never pin a version. The standalone install tracks
+# the installed version via ~/.codex/packages/standalone/current, so this follows
+# upgrades automatically. fnm node-version installs are skipped on purpose: they pin
+# a stale npm release and then reject models the installed CLI supports.
+CODEX="${RESEARCH_CODEX_BIN:-}"
+if [ -z "$CODEX" ]; then
+  for c in "$(command -v codex 2>/dev/null)" \
+           "${HOME}/.codex/packages/standalone/current/bin/codex"; do
+    [ -n "$c" ] && [ -x "$c" ] || continue
+    case "$c" in */fnm/node-versions/*) continue ;; esac
+    CODEX="$c"; break
+  done
+fi
+[ -n "$CODEX" ] && [ -x "$CODEX" ] || { echo "FATAL: codex not found/executable" >&2; exit 1; }
 # No fallback to the deprecated `gemini` CLI — hard-fail if the shim is missing.
 [ -x "$GEMINI" ] || { echo "FATAL: reviewer shim not executable at $GEMINI — see ${TMPDIR:-/tmp}/agy-review-shim.err"; exit 1; }
 [ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"
 export PATH="$(dirname "$CODEX"):$(dirname "$GEMINI"):$PATH"
 PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
-export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}"
-export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-high}"
+export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}"
+export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-medium}"
 echo "GEMINI=$GEMINI"
 echo "CODEX=$CODEX"
 echo "PROJECT_ROOT=$PROJECT_ROOT"
@@ -178,7 +195,7 @@ Write the header, then run Codex read-only with its output appended to the same 
 
     ROUND_FILE=reviews/$TOPIC-codex-review-round-N.md
     echo "---" > "$ROUND_FILE"
-    echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" >> "$ROUND_FILE"
+    echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" >> "$ROUND_FILE"
     echo "type: formatting" >> "$ROUND_FILE"
     echo "paper: $TOPIC" >> "$ROUND_FILE"
     echo "round: N" >> "$ROUND_FILE"
@@ -186,7 +203,7 @@ Write the header, then run Codex read-only with its output appended to the same 
     echo "---" >> "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
     until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/$TOPIC.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS (no issues remain) or VERDICT: NEEDS_FIX (issues listed above must be fixed)." </dev/null >> "$ROUND_FILE" 2>&1
+    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/$TOPIC.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes, spacing problems. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS (no issues remain) or VERDICT: NEEDS_FIX (issues listed above must be fixed)." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
 Gotchas (each one has cost a pipeline run): `</dev/null` is mandatory — without it Codex hangs on "Reading additional input from stdin"; `-s read-only` stops Codex from editing the paper (YOU apply the fixes in Step C); `--skip-git-repo-check` is required when the project is not a git repo; keep the prompt concise and name the single file, otherwise Codex explores the whole repository and the round file balloons.
@@ -234,10 +251,10 @@ Requirements:
 The paper's code evidence appendix (the table mapping each computational claim to a file, function, or test in `src/`) must be judged row by row. Same mutex, same read-only Codex command, **maximum 2 invocations**:
 
     ROUND_FILE=reviews/$TOPIC-code-audit-round-N.md          # N = 1 or 2
-    { echo "---"; echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}"; echo "type: code-audit"; echo "paper: $TOPIC"; echo "round: N"; echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo "---"; } > "$ROUND_FILE"
+    { echo "---"; echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}"; echo "type: code-audit"; echo "paper: $TOPIC"; echo "round: N"; echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo "---"; } > "$ROUND_FILE"
     LOCK="$PROJECT_ROOT/.review.lock"
     until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read papers/latex/$TOPIC.tex and ONLY the files under src/$TOPIC/ that its code evidence appendix names (do not explore anything else). For EVERY row of the appendix output one line: ROW <n> | <claim, 10 words max> | SUPPORTS | PARTIAL | NO | <one-sentence reason>. SUPPORTS means the named code actually demonstrates or tests the claim as stated. End with VERDICT: PASS if every row is SUPPORTS, else VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
+    timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read papers/latex/$TOPIC.tex and ONLY the files under src/$TOPIC/ that its code evidence appendix names (do not explore anything else). For EVERY row of the appendix output one line: ROW <n> | <claim, 10 words max> | SUPPORTS | PARTIAL | NO | <one-sentence reason>. SUPPORTS means the named code actually demonstrates or tests the claim as stated. End with VERDICT: PASS if every row is SUPPORTS, else VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
 For every `PARTIAL` or `NO` row: strengthen the code (add the demonstration or property test), narrow the claim in the paper to what the code shows, or remove the row and its claim. Then run round 2. The gate passes only when the last round has every row `SUPPORTS` and `VERDICT: PASS`; copy it to `reviews/$TOPIC-code-audit.md`. If round 2 still has non-SUPPORTS rows, remove those rows and claims from the paper before proceeding and log `WARN: code-audit removed <n> rows`.

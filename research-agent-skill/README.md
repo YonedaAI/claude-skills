@@ -30,10 +30,10 @@ deployed website, social posts, and Slack notifications.
 
 | Artifact | Author | Independent reviewer |
 |---|---|---|
-| Research papers | MiMo (`xiaomi/mimo-v2.6-pro`) | AGY (Gemini 4 Argon) |
-| Synthesis paper | MiMo (`xiaomi/mimo-v2.6-pro`) | AGY (Gemini 4 Argon) |
-| Haskell / Lean code | MiMo (`xiaomi/mimo-v2.6-pro`) | Codex (`gpt-5.6-sol`) |
-| Website / publication code | MiMo (`xiaomi/mimo-v2.6-flash`) | Codex (`gpt-5.6-sol`) |
+| Research papers | MiMo (`xiaomi/mimo-v2.6-pro`) | AGY (Gemini 4 Argon High) |
+| Synthesis paper | MiMo (`xiaomi/mimo-v2.6-pro`) | AGY (Gemini 4 Argon High) |
+| Haskell / Lean code | MiMo (`xiaomi/mimo-v2.6-pro`) | Codex (`gpt-6.1-sol`) |
+| Website / publication code | MiMo (`xiaomi/mimo-v2.6-flash`) | Codex (`gpt-6.1-sol`) |
 | Knowledge base, social | MiMo (`xiaomi/mimo-v2.6-flash`) | — |
 
 **The author never reviews its own work.** That is the load-bearing rule of the whole design.
@@ -72,7 +72,7 @@ an agent that resolves `null` aborts the run, and a `SKIPPED` review stub is a f
 ## Review pipeline
 
 1. **AGY peer review** via `agy-review-shim` (`$RESEARCH_GEMINI_BIN`, model label
-   `$RESEARCH_GEMINI_MODEL`, default `gemini-4-argon`) — adversarial review by an external LLM.
+   `$RESEARCH_GEMINI_MODEL`, default `gemini-4-argon-high`) — adversarial review by an external LLM.
    Max **3** rounds. The plain `gemini` CLI is deprecated and never used.
 2. **Codex formatting check** via `codex exec -s read-only` — LaTeX compilation, references,
    styling. Max **2** fix passes.

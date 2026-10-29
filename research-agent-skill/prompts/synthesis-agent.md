@@ -17,14 +17,31 @@ Node is managed by `fnm` on this system — shims are not active in non-interact
 
 ```bash
 GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
-CODEX="${RESEARCH_CODEX_BIN:-/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex}"
+# AGY effort is carried by the model NAME; the shim passes --effort only if AGY_REVIEW_EFFORT
+# is set, and agy >=1.1.23 rejects --effort on effort-bearing model names. So set the model,
+# not the effort flag. (gemini-4-argon-high -> "Gemini 4 Argon (High)")
+export AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-Gemini 4 Argon (High)}"
+# Resolve codex at RUNTIME — never pin a version. The standalone install tracks
+# the installed version via ~/.codex/packages/standalone/current, so this follows
+# upgrades automatically. fnm node-version installs are skipped on purpose: they pin
+# a stale npm release and then reject models the installed CLI supports.
+CODEX="${RESEARCH_CODEX_BIN:-}"
+if [ -z "$CODEX" ]; then
+  for c in "$(command -v codex 2>/dev/null)" \
+           "${HOME}/.codex/packages/standalone/current/bin/codex"; do
+    [ -n "$c" ] && [ -x "$c" ] || continue
+    case "$c" in */fnm/node-versions/*) continue ;; esac
+    CODEX="$c"; break
+  done
+fi
+[ -n "$CODEX" ] && [ -x "$CODEX" ] || { echo "FATAL: codex not found/executable" >&2; exit 1; }
 # No fallback to the deprecated `gemini` CLI (exits "This client is no longer supported") — hard-fail instead.
 [ -x "$GEMINI" ] || { echo "FATAL: reviewer shim not executable at $GEMINI — see ${TMPDIR:-/tmp}/agy-review-shim.err"; exit 1; }
 [ -x "$CODEX" ]  || CODEX="$(command -v codex  2>/dev/null || echo codex)"
 export PATH="$(dirname "$CODEX"):$(dirname "$GEMINI"):$PATH"
 PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
-export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}"
-export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-high}"
+export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}"
+export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-medium}"
 echo "GEMINI=$GEMINI"
 echo "CODEX=$CODEX"
 ```
@@ -134,7 +151,7 @@ rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
        ROUND_FILE=reviews/synthesis-codex-review-round-N.md
        echo "---" > "$ROUND_FILE"
-       echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" >> "$ROUND_FILE"
+       echo "reviewer: codex (OpenAI) ${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" >> "$ROUND_FILE"
        echo "type: formatting" >> "$ROUND_FILE"
        echo "paper: synthesis" >> "$ROUND_FILE"
        echo "round: N" >> "$ROUND_FILE"
@@ -142,7 +159,7 @@ rmdir "$LOCK" 2>/dev/null; trap - EXIT
        echo "---" >> "$ROUND_FILE"
        LOCK="$PROJECT_ROOT/.review.lock"
        until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-       timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-high}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/synthesis.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
+       timeout 1200 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the file papers/latex/synthesis.tex (do not explore other files or directories). Review it for LaTeX formatting issues: compilation errors, missing packages, broken references, inconsistent styling, overfull/underfull boxes. List all issues with line numbers and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
        rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
    Gotchas: `</dev/null` is mandatory (otherwise Codex hangs on "Reading additional input from stdin"); `-s read-only` keeps Codex from editing the paper (you apply fixes in Step C); `--skip-git-repo-check` is needed outside a git repo; keep the prompt concise and name the single file or Codex explores the whole repository and the round file balloons.
