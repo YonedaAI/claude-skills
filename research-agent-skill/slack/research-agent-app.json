@@ -1,0 +1,32 @@
+{
+  "display_information": {
+    "name": "Research Agent",
+    "description": "Notifications from the research-agent pipeline: worker completion, synthesis, Haskell verification, website deploy, final summary.",
+    "background_color": "#2C3E50",
+    "long_description": "Posts pipeline progress for the research-agent multi-agent research pipeline (MiMo drafts, AGY and Codex review). Keeps research runs observable without leaving Slack. Owned by the MiMoCode research-agent skill, not by AgentHero."
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Research Agent",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "chat:write.customize",
+        "channels:read",
+        "channels:history",
+        "reactions:write",
+        "users:read",
+        "users.profile:read"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
