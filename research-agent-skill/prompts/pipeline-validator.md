@@ -194,7 +194,7 @@ Set LOCAL git identity only — never the user's global git config:
 ```bash
 cd "$PROJECT_ROOT"
 git config user.name "Matthew Long"
-git config user.email "mlong@yonedalabs.com"
+git config user.email "mlong@yonedalabs.ai"
 ```
 
 Publish sequence once OVERALL is PASS:

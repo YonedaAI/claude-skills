@@ -109,7 +109,7 @@ export default async function () {
     `RESEARCH_COLLABORATION="The YonedaAI Collaboration"`,
     `RESEARCH_INSTITUTION="YonedaAI Research Collective"`,
     `RESEARCH_LOCATION="Chicago, Illinois, USA"`,
-    `RESEARCH_AUTHOR_EMAIL="mlong@yonedalabs.com"`,
+    `RESEARCH_AUTHOR_EMAIL="mlong@yonedalabs.ai"`,
     `RESEARCH_AUTHOR_URL="https://yonedalabs.ai"`,
     ``,
     `Workspace root is the current directory. The stage prompt is at prompts/`,
