@@ -74,7 +74,7 @@ Phase 4: Synthesis ──> Phase 5: Haskell Verify ──> Phase 6: Website + Ve
 
 Every paper goes through two mandatory, externally-enforced review cycles:
 
-1. **Gemini peer review** via the `agy-review-shim` (`$RESEARCH_GEMINI_BIN`; model label `$RESEARCH_GEMINI_MODEL`, default `gemini-3.1-pro`, routed to Antigravity's "Gemini 3.1 Pro (High)") — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the shim command and write the output to disk. Gate checks verify the review file exists and has substantive content. The plain `gemini` CLI is deprecated and is never used as a fallback; the shim's stderr log is `${TMPDIR:-/tmp}/agy-review-shim.err`.
+1. **Gemini peer review** via the `agy-review-shim` (`$RESEARCH_GEMINI_BIN`; model label `$RESEARCH_GEMINI_MODEL`, default `gemini-4-argon`, routed to Antigravity's "Gemini 4 Argon (High)") — adversarial review by an external LLM (not self-review), saved to `reviews/`. Each worker MUST run the shim command and write the output to disk. Gate checks verify the review file exists and has substantive content. The plain `gemini` CLI is deprecated and is never used as a fallback; the shim's stderr log is `${TMPDIR:-/tmp}/agy-review-shim.err`.
 2. **Codex formatting check** — LaTeX compilation, references, styling issues. Each worker MUST run the direct `codex exec -s read-only` command (sub-agents have no Skill tool, so `codex:rescue` is orchestrator-only).
 
 All reviewer calls are serialized through a project-wide `.review.lock` mutex (concurrent `agy`/`codex` calls return empty output), and a 60-second sanity test of both reviewers runs in Phase 1 before any worker spawns.

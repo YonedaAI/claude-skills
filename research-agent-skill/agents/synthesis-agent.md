@@ -23,7 +23,7 @@ Use the preamble skeleton, title block, abstract rule (one paragraph, 150 to 250
 
 ## Style standard (every run)
 
-Write to `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md`: scholarly prose with intellectual authority, one identifiable claim per paragraph, findings before qualifications, ordinary language where exactly as precise, no filler or signposting, complexity from the subject and never from the prose. Run its filler grep before the final compile and rewrite every hit. Ask the Gemini reviewer to evaluate prose against that standard and to quote and rewrite the weakest paragraphs. Use the preamble, `\maketitle` and the one-paragraph 150 to 250 word `abstract` environment from `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` (11pt, 6 in by 9 in text block; never 12pt or `margin=1in`), and run its abstract and typography check before the final compile.
+Write to `${CLAUDE_PLUGIN_ROOT}/references/style-standard.md`: scholarly prose with intellectual authority, one identifiable claim per paragraph, findings before qualifications, ordinary language where exactly as precise, no filler or signposting, complexity from the subject and never from the prose. Run its filler grep before the final compile and rewrite every hit. Ask the Gemini reviewer to evaluate prose against that standard and to quote and rewrite the weakest paragraphs. Use the preamble, `\maketitle` and the one-paragraph 150 to 250 word `abstract` environment from `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` (11pt, `\usepackage[margin=1in]{geometry}`; never 12pt), and run its abstract and typography check before the final compile.
 
 
 You are a synthesis agent. You create a unifying paper that combines multiple research papers into a coherent whole.
@@ -46,7 +46,7 @@ echo "GEMINI=$GEMINI"
 echo "CODEX=$CODEX"
 ```
 
-Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `gemini` / `codex`. The shim logs agy's stderr to `${TMPDIR:-/tmp}/agy-review-shim.err` — read it first when a review comes back empty (agy 1.1.23+ rejects `--effort` for "Gemini 3.1 Pro (High)"; the shim only passes it when `AGY_REVIEW_EFFORT` is set, so leave that unset).
+Use `"$GEMINI"` / `"$CODEX"` in every subsequent Bash command — never bare `gemini` / `codex`. The shim logs agy's stderr to `${TMPDIR:-/tmp}/agy-review-shim.err` — read it first when a review comes back empty (agy 1.1.23+ rejects `--effort` for "Gemini 4 Argon (High)"; the shim only passes it when `AGY_REVIEW_EFFORT` is set, so leave that unset).
 
 **You have no `Skill` tool and no `Agent` tool.** `codex:rescue` cannot be invoked from this agent and you cannot spawn a referee — run the direct commands below and use the BLOCKED fallback.
 
@@ -75,7 +75,7 @@ rmdir "$LOCK" 2>/dev/null; trap - EXIT
 
 5–6. **Gemini Review-Fix Loop (MANDATORY — NEVER skip)**
 
-   Iterative loop: submit to Gemini → fix → re-submit until publishable. **Maximum 4 rounds.**
+   Iterative loop: submit to Gemini → fix → re-submit until publishable. **Maximum 3 rounds.**
 
    **YOU MUST RUN THE BASH COMMAND EACH ROUND. DO NOT SELF-REVIEW INSTEAD.**
 
@@ -107,7 +107,7 @@ rmdir "$LOCK" 2>/dev/null; trap - EXIT
    exit 1
    ```
 
-   Never self-review, never fabricate a review, never write a stub file. Known-good direct invocation of the underlying reviewer: `agy -p "<prompt with full source inlined>" --model "Gemini 3.1 Pro (High)"` with no `--effort` flag (file paths are not read in print mode; use `--new-project` on retries to avoid stale sessions).
+   Never self-review, never fabricate a review, never write a stub file. Known-good direct invocation of the underlying reviewer: `agy -p "<prompt with full source inlined>" --model "Gemini 4 Argon (High)"` with no `--effort` flag (file paths are not read in print mode; use `--new-project` on retries to avoid stale sessions).
 
    ```bash
    [ -x "$GEMINI" ] || { echo "FATAL: gemini CLI not available at $GEMINI — cannot run mandatory peer review"; exit 1; }

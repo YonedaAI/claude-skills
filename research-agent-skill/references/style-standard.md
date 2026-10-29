@@ -26,7 +26,7 @@ An abstract is one paragraph of 150 to 250 words with no citations: the question
 
 A table cell is a phrase a reader can say aloud. Telegraphic fragments ("diffuse; no single origin", "same post; internal eval") are notes, not prose, and they hyphenate badly in narrow columns. Widen the column, shorten the phrase, or move the content to prose.
 
-Formatting follows `paper-format.md`: 11pt article, 6in measure, indented paragraphs without vertical gaps, standard abstract environment, booktabs, footnotesize sidebar.
+Formatting follows `paper-format.md`: 11pt article, one-inch margins (`margin=1in`), indented paragraphs without vertical gaps, standard abstract environment, booktabs, footnotesize sidebar.
 
 ## Two worked examples
 

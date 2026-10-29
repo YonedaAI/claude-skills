@@ -59,7 +59,7 @@ All review/fix cycles are bounded to prevent infinite loops:
 
 | Review Type | Max Iterations | Action if unresolved |
 |-------------|---------------|----------------------|
-| Gemini peer review fix | 4 rounds | Log remaining issues, continue |
+| Gemini peer review fix | 3 rounds | Log remaining issues, continue |
 | Codex LaTeX formatting fix | 2 fix passes (3 invocations) | Log remaining issues, continue |
 | Style, abstract and typography gate (Phase 4.5) | until clean | Hard gate: do not continue |
 | Codex Haskell review fix | 2 | Log remaining issues, continue |

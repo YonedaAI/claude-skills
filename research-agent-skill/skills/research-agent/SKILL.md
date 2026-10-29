@@ -38,11 +38,11 @@ Read these at the start of execution. All have sensible defaults — none are re
 | `RESEARCH_LOCATION` | `Chicago, IL` | Author location |
 | `RESEARCH_GITHUB_ORG` | `YonedaAI` | GitHub organization for repo creation |
 | `RESEARCH_SLACK_CHANNEL` | `C0AK269AVSA` | Slack channel ID for notifications |
-| `RESEARCH_GEMINI_MODEL` | `gemini-3.1-pro` | Gemini model for peer review |
+| `RESEARCH_GEMINI_MODEL` | `gemini-4-argon` | Gemini model for peer review |
 | `RESEARCH_WORKER_MODEL` | `opus` | Model for research-worker and synthesis agents (Opus 5; prose quality is enforced by references/writing-standard.md and its checks, not by the model choice) |
 | `RESEARCH_UTILITY_MODEL` | `sonnet` | Model for utility agents (KB builder, website, social) |
-| `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | Peer-review CLI: the `agy` (Antigravity) shim `agy-review-shim` (routes review calls to agy, model "Gemini 3.1 Pro (High)"). Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. The shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set (agy >= 1.1.23 rejects `--effort` for models whose name already carries effort) and logs stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`. |
-| `AGY_REVIEW_EFFORT` | *(unset)* | Only set this when `AGY_REVIEW_MODEL` names a model WITHOUT an effort suffix. Leave unset for "Gemini 3.1 Pro (High)" — agy 1.1.23+ exits with a flag error otherwise and the review comes back empty. |
+| `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | Peer-review CLI: the `agy` (Antigravity) shim `agy-review-shim` (routes review calls to agy, model "Gemini 4 Argon (High)"). Required because Node is managed via `fnm` and shims are not active in non-interactive Bash subshells spawned by agents. The shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set (agy >= 1.1.23 rejects `--effort` for models whose name already carries effort) and logs stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`. |
+| `AGY_REVIEW_EFFORT` | *(unset)* | Only set this when `AGY_REVIEW_MODEL` names a model WITHOUT an effort suffix. Leave unset for "Gemini 4 Argon (High)" — agy 1.1.23+ exits with a flag error otherwise and the review comes back empty. |
 | `RESEARCH_CODEX_BIN` | `/Users/mlong/.local/share/fnm/node-versions/v24.14.0/installation/bin/codex` | Absolute path to the `codex` CLI. Same fnm reasoning — agents and the `codex:rescue` skill can't find `codex` on a raw `$PATH`. |
 | `RESEARCH_CODEX_MODEL` | `gpt-5.6-sol` | Model passed as `-m` to every direct `codex exec` call (workers, synthesis, Haskell verifier, code audit, plan critique). Set by `--codex-model`. |
 | `RESEARCH_CODEX_EFFORT` | `high` | Value for `-c model_reasoning_effort=...` on every direct `codex exec` call. Set by `--codex-effort`. The Phase 1 sanity test uses `low` regardless. |
@@ -71,10 +71,10 @@ From that point in the script, always invoke `"$GEMINI"` and `"$CODEX"` — neve
 
 **Reviewer shim facts (read before debugging an empty review):**
 
-- `agy` 1.1.23 and later **reject `--effort`** for models whose name already carries an effort level (e.g. "Gemini 3.1 Pro (High)"). The shim at `/Users/mlong/.local/bin/agy-review-shim` therefore passes `--effort` **only when `AGY_REVIEW_EFFORT` is set**. Do not export `AGY_REVIEW_EFFORT` for the default model.
+- `agy` 1.1.23 and later **reject `--effort`** for models whose name already carries an effort level (e.g. "Gemini 4 Argon (High)"). The shim at `/Users/mlong/.local/bin/agy-review-shim` therefore passes `--effort` **only when `AGY_REVIEW_EFFORT` is set**. Do not export `AGY_REVIEW_EFFORT` for the default model.
 - The shim logs agy's stderr to **`${TMPDIR:-/tmp}/agy-review-shim.err`**. When a review comes back empty, header-only, or the shim exits non-zero, **read that log first** — flag errors, auth errors, and timeouts all land there.
 - The plain **`gemini` CLI is no longer usable**: Google deprecated Gemini Code Assist for individuals and it exits with "This client is no longer supported ... migrate to Antigravity". **Do not fall back to it** and do not resolve `$GEMINI` to it. If the shim is missing, the pipeline stops.
-- Known-good direct invocation of the underlying reviewer (for manual debugging only): `agy -p "<prompt with full paper source inlined>" --model "Gemini 3.1 Pro (High)"` — no `--effort`; passing a file path does not work (print mode does not read files); use `--new-project` when retrying to avoid a stale session.
+- Known-good direct invocation of the underlying reviewer (for manual debugging only): `agy -p "<prompt with full paper source inlined>" --model "Gemini 4 Argon (High)"` — no `--effort`; passing a file path does not work (print mode does not read files); use `--new-project` when retrying to avoid a stale session.
 
 **Reviewer calls must be serialized.** Concurrent `agy` or `codex` invocations from parallel workers return empty output. Every call to `"$GEMINI"` or `"$CODEX"` — in any agent — must hold the project-wide mutex directory `$PROJECT_ROOT/.review.lock` (mkdir-based). Wrap each **single** reviewer call like this, never the agent's own fix work:
 
@@ -123,11 +123,11 @@ This is a HARD GATE. If `slack_lint_msg` returns non-zero, fix the message text 
 
 Every phase has a MANDATORY checkpoint. You MUST complete ALL of these — they are not optional:
 
-1. **Gemini peer review loop** — Every paper (workers + synthesis) MUST be reviewed by `"$GEMINI" -m $RESEARCH_GEMINI_MODEL` (the agy shim) in an iterative loop: review → fix → re-review → fix → ... until the reviewer's VERDICT is ACCEPT or MINOR REVISIONS. Max 4 rounds per paper. Reviews saved to `reviews/$TOPIC-review-round-N.md`. Every reviewer call holds the `$PROJECT_ROOT/.review.lock` mutex (Tool Resolution section). The Phase 1 reviewer sanity tests MUST pass before any worker spawns. Skipping this is a pipeline failure.
+1. **Gemini peer review loop** — Every paper (workers + synthesis) MUST be reviewed by `"$GEMINI" -m $RESEARCH_GEMINI_MODEL` (the agy shim) in an iterative loop: review → fix → re-review → fix → ... until the reviewer's VERDICT is ACCEPT or MINOR REVISIONS. Max 3 rounds per paper. Reviews saved to `reviews/$TOPIC-review-round-N.md`. Every reviewer call holds the `$PROJECT_ROOT/.review.lock` mutex (Tool Resolution section). The Phase 1 reviewer sanity tests MUST pass before any worker spawns. Skipping this is a pipeline failure.
 2. **Codex formatting check** — Every paper MUST be checked by Codex after the review loop. Sub-agents run the direct `"$CODEX" exec ... -s read-only` command (Tool Resolution section); the orchestrator may use `codex:rescue` or the direct command. Skipping this is a pipeline failure.
 3. **Codex website review** — The website MUST be reviewed by `codex:rescue` (or the equivalent direct command) BEFORE Vercel deployment (Step 6d). Skipping this is a pipeline failure.
 4. **Slack per-topic notifications** — Send a Slack message after EACH worker completes, after synthesis completes, after Haskell verification completes, after website deployment, and a final summary. These are 5+ separate Slack messages minimum.
-5. **Review-fix loops** — Both reviewers iterate. **Gemini**: review → fix → re-review until VERDICT is ACCEPT or MINOR REVISIONS, or 4 rounds exhausted. **Codex**: review → fix → re-review until VERDICT is PASS, or 2 fix passes exhausted (3 total invocations). Each round writes its own `reviews/<topic>-review-round-N.md` (Gemini) or `reviews/<topic>-codex-review-round-N.md` (Codex). The final canonical review file is a copy of the last round. After Phase 3/4/5, the orchestrator runs a hard gate that respawns the worker if any review is missing/stub-only/non-iterating, and aborts the pipeline if the respawn still fails. Soft-fallback paths (`SKIPPED:` stub files, "run the loop yourself") have been removed.
+5. **Review-fix loops** — Both reviewers iterate. **Gemini**: review → fix → re-review until VERDICT is ACCEPT or MINOR REVISIONS, or 3 rounds exhausted. **Codex**: review → fix → re-review until VERDICT is PASS, or 2 fix passes exhausted (3 total invocations). Each round writes its own `reviews/<topic>-review-round-N.md` (Gemini) or `reviews/<topic>-codex-review-round-N.md` (Codex). The final canonical review file is a copy of the last round. After Phase 3/4/5, the orchestrator runs a hard gate that respawns the worker if any review is missing/stub-only/non-iterating, and aborts the pipeline if the respawn still fails. Soft-fallback paths (`SKIPPED:` stub files, "run the loop yourself") have been removed.
 6. **Bypass permissions on every Agent spawn** — This pipeline runs unattended. Every `Agent` tool call MUST set `mode: "bypassPermissions"` so sub-agents never pause for permission prompts on Bash/Write/Edit/WebFetch. A single prompt stalls the whole run. See "Agent Spawning Rules" below.
 7. **Every URL in every Slack message MUST be a markdown link `[label](https://...)`** — `mcp__claude_ai_Slack__slack_send_message` takes standard markdown. The angle-bracket form `<https://...>` is WRONG for this tool and renders literally. A bare URL is also wrong: Slack's auto-linker is greedy and pulls adjacent `*bold*` markers or punctuation into the link (observed: `https://github.com/org/repo *Social` rendered as a link to `…/repo *Social`, simultaneously breaking bold formatting). Put each link on its own bold-label line, e.g. `**Website:** [agent-engineering.vercel.app](https://agent-engineering.vercel.app)`. NEVER paste a raw or angle-bracketed URL into a Slack message. Applies to every `mcp__claude_ai_Slack__slack_send_message` call — worker completion, synthesis, Haskell, website deploy, final summary, and any error notifications.
 8. **Run `slack_lint_msg` before EVERY Slack send and `pipeline-validator` before the final Phase 8 Slack send.** The inline `slack_lint_msg` Bash function (defined above in "Slack Message Linter") gates every individual message — a single bare URL, angle-bracket URL, or unbalanced `**` marker blocks the send. The `pipeline-validator` agent (definition: `agents/pipeline-validator.md`) gates the final summary by additionally validating OG image dimensions/std-dev, `.vercel-url` integrity, and required artifact presence. Both gates are MANDATORY — a FAIL means fix the issue and re-validate, never bypass.
@@ -244,7 +244,7 @@ Both external reviewers must prove they work end-to-end BEFORE Phase 2/3. A brok
 
 ```bash
 cd $PROJECT_PATH/$PROJECT
-printf 'Theorem 1. The identity is a coalgebra homomorphism. Proof. Immediate.\n' | "$GEMINI" -m gemini-3.1-pro -p "Peer review this note in at least 600 characters. End with a line VERDICT: ACCEPT or VERDICT: MINOR REVISIONS." | grep -q VERDICT && echo "REVIEWER OK" || { echo "FATAL: reviewer shim broken, see ${TMPDIR:-/tmp}/agy-review-shim.err"; exit 1; }
+printf 'Theorem 1. The identity is a coalgebra homomorphism. Proof. Immediate.\n' | "$GEMINI" -m gemini-4-argon -p "Peer review this note in at least 600 characters. End with a line VERDICT: ACCEPT or VERDICT: MINOR REVISIONS." | grep -q VERDICT && echo "REVIEWER OK" || { echo "FATAL: reviewer shim broken, see ${TMPDIR:-/tmp}/agy-review-shim.err"; exit 1; }
 
 "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-5.6-sol}" -c 'model_reasoning_effort="low"' -s read-only --skip-git-repo-check "Reply with exactly: CODEX OK" </dev/null | grep -q "CODEX OK" && echo "CODEX OK" || { echo "FATAL: codex broken"; exit 1; }
 ```
@@ -337,7 +337,7 @@ Read .knowledge-base.md for context, then execute this pipeline:
 ### Stage 1 — Draft
 Write an arxiv-style LaTeX paper (>=20 pages) to `papers/latex/$TOPIC.tex`
 Include: abstract, introduction, mathematical framework, results, discussion, references.
-Use the exact arXiv-style skeleton in references/paper-format.md (11pt letterpaper, 6in measure, standard one-paragraph abstract of 150 to 250 words, plain sentence-case headings, Title Case title of two to six words) and run its format check before the final compile.
+Use the exact arXiv-style skeleton in references/paper-format.md (11pt letterpaper, one-inch margins (`margin=1in`), standard one-paragraph abstract of 150 to 250 words, plain sentence-case headings, Title Case title of two to six words) and run its format check before the final compile.
 Add custom theorem environments (Theorem, Proposition, Lemma, Definition, Remark).
 Keep the paper free of agent activity, review status, confidence labels, provenance fields, audit badges, and internal claim classifications. Use conventional mathematical environments only where they serve the argument.
 Write to the academic style standard in references/style-standard.md (one claim per paragraph, findings before qualifications, no filler or signposting, complexity from the subject and never from the prose) and run its filler grep before your final compile.
@@ -355,7 +355,7 @@ If the topic involves mathematics AND Haskell is ON, also create Haskell modules
 (When Haskell is OFF, skip this block entirely.)
 
 ### Stages 2–3 — Gemini Review-Fix Loop
-Run iterative peer review via the reviewer shim "$GEMINI". Submit paper → fix issues → re-submit until verdict is ACCEPT or MINOR REVISIONS. Max 4 rounds.
+Run iterative peer review via the reviewer shim "$GEMINI". Submit paper → fix issues → re-submit until verdict is ACCEPT or MINOR REVISIONS. Max 3 rounds.
 
 Each round: under the .review.lock mutex, run the Bash command that pipes the paper to "$GEMINI" with a review prompt that ends with a VERDICT line (REJECT / MAJOR REVISIONS / MINOR REVISIONS / ACCEPT). Release the lock, then fix. Save each round to `reviews/$TOPIC-review-round-N.md`. Fix critical/major issues between rounds. Copy final review to `reviews/$TOPIC-review.md`. If a review comes back empty, read ${TMPDIR:-/tmp}/agy-review-shim.err before retrying.
 
@@ -433,13 +433,13 @@ review_gate_check() {
   grep -q "VERDICT:" "reviews/$topic-review.md" \
     || { echo "FAIL ($topic): canonical review has no VERDICT line"; return 1; }
 
-  # (c) Verdict trajectory: final must be ACCEPT/MINOR, OR 4-round cap reached.
+  # (c) Verdict trajectory: final must be ACCEPT/MINOR, OR 3-round cap reached.
   final_verdict=$(tail -20 "reviews/$topic-review.md" | grep -i "VERDICT" | tail -1)
   rounds=$(ls reviews/$topic-review-round-*.md 2>/dev/null | wc -l | tr -d ' ')
   case "$final_verdict" in
     *ACCEPT*|*MINOR*) ;;
     *)
-      if [ "$rounds" -lt 4 ]; then
+      if [ "$rounds" -lt 3 ]; then
         echo "FAIL ($topic): final verdict='$final_verdict' but only $rounds round(s) — worker did not iterate"
         return 1
       fi
@@ -1219,9 +1219,9 @@ Use ONLY the value from that file. NEVER construct, guess, or type the URL from 
 VERCEL_URL=$(cat $PROJECT_PATH/$PROJECT/.vercel-url)
 
 # Derive reviewer label from $RESEARCH_GEMINI_MODEL (see below).
-GEMINI_LABEL=$(echo "${RESEARCH_GEMINI_MODEL:-gemini-3.1-pro}" \
+GEMINI_LABEL=$(echo "${RESEARCH_GEMINI_MODEL:-gemini-4-argon}" \
   | sed -E 's/^gemini-/Gemini /' \
-  | sed -E 's/-pro$/ Pro/; s/-flash$/ Flash/; s/-ultra$/ Ultra/')
+  | sed -E 's/-pro$/ Pro/; s/-flash$/ Flash/; s/-ultra$/ Ultra/; s/-argon$/ Argon/')
 
 # Compose the proposed message (standard markdown: **bold**, [label](url)).
 VERCEL_HOST=${VERCEL_URL#https://}
@@ -1284,7 +1284,7 @@ CRITICAL — the message text from Step 8d.1 already follows these rules; preser
 
 ## Error Handling
 
-- **Fix loops**: Every review/fix cycle is bounded: Gemini peer review 4 rounds, Codex formatting 2 fix passes (3 invocations), Codex Haskell and website reviews 2 fix passes. When a bound is hit, log the remaining items and continue. The Phase 4.5 style, abstract and typography checks are not bounded loops but hard gates: fix until clean.
+- **Fix loops**: Every review/fix cycle is bounded: Gemini peer review 3 rounds, Codex formatting 2 fix passes (3 invocations), Codex Haskell and website reviews 2 fix passes. When a bound is hit, log the remaining items and continue. The Phase 4.5 style, abstract and typography checks are not bounded loops but hard gates: fix until clean.
 - **Missing tools**: The reviewer shim (`$GEMINI`) and `$CODEX` are MANDATORY — the Phase 1 sanity tests stop the pipeline if either is broken; read `${TMPDIR:-/tmp}/agy-review-shim.err` and never fall back to the deprecated `gemini` CLI. If `pdflatex` is not available, skip PDF compilation. If `vercel` is not available, skip deployment.
 - **Stale review lock**: a foreground Bash call is killed at the tool's 10-minute timeout without firing the EXIT trap, so the lock holder leaves `.review.lock` behind and every sibling blocks on it. Run every reviewer call (agy or codex) from a wrapper started with the Bash tool's `run_in_background` option, trap `EXIT INT TERM`, and prefix the reviewer command with `timeout 900`. A lock older than 20 minutes with no live `bin/codex exec` or agy process (`pgrep -f "bin/codex exec"`, `pgrep -f agy-review-shim`) is stale and may be removed with `rmdir`; never remove a younger one.
 - **Empty reviewer output mid-run**: almost always a concurrent `agy`/`codex` call (mutex not held) or a stale `.review.lock` from a crashed worker. Check the lock directory, read the shim log, re-run the Step 1b sanity test, then respawn the affected worker.

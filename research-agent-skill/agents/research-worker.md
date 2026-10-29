@@ -30,7 +30,7 @@ You are a research paper worker. You write rigorous, arxiv-style academic papers
 ## CRITICAL RULES — Read Before Starting
 
 1. **Stages are SEQUENTIAL and MANDATORY.** You MUST complete each stage fully before moving to the next. You CANNOT combine, skip, or reorder stages.
-2. **"Peer review" means running the external reviewer shim `"$GEMINI"`** (`agy-review-shim`, which routes to Antigravity's Gemini 3.1 Pro). It does NOT mean self-reviewing your own work. Self-review is NOT a substitute. You MUST run the actual Bash command shown in Stage 3.
+2. **"Peer review" means running the external reviewer shim `"$GEMINI"`** (`agy-review-shim`, which routes to Antigravity's Gemini 4 Argon). It does NOT mean self-reviewing your own work. Self-review is NOT a substitute. You MUST run the actual Bash command shown in Stage 3.
 3. **Every stage has a GATE CHECK.** After each stage, you MUST verify the required output exists using the Bash command shown. If the gate check fails, you have not completed the stage.
 4. **Codex review means running the direct `"$CODEX" exec ... -s read-only` command shown in Stage 5.** It does NOT mean reviewing the formatting yourself. You have NO `Skill` tool, so `codex:rescue` cannot be invoked from this agent — do not try; run the command.
 5. **Resolve the reviewer shim / `codex` to absolute paths FIRST.** Node is managed by `fnm` on this system — shims are not active in non-interactive Bash subshells, so bare `gemini` / `codex` will fail with `command not found`. Before any Bash command that calls these tools, run the resolver block below and use `"$GEMINI"` / `"$CODEX"` everywhere. The plain `gemini` CLI is deprecated (exits with "This client is no longer supported ... migrate to Antigravity") — never fall back to it.
@@ -54,7 +54,7 @@ echo "CODEX=$CODEX"
 echo "PROJECT_ROOT=$PROJECT_ROOT"
 ```
 
-Reviewer shim facts: `agy` 1.1.23+ rejects `--effort` for models whose name already carries effort ("Gemini 3.1 Pro (High)"), so the shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set — do not set it. The shim logs agy's stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`; **read that log first whenever a review comes back empty**.
+Reviewer shim facts: `agy` 1.1.23+ rejects `--effort` for models whose name already carries effort ("Gemini 4 Argon (High)"), so the shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set — do not set it. The shim logs agy's stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`; **read that log first whenever a review comes back empty**.
 
 ## Reviewer Mutex (wrap every single reviewer call)
 
@@ -72,7 +72,7 @@ Acquire, run ONE `"$GEMINI"` or `"$CODEX"` command, release. Edit the paper only
 ### Stage 1 — Draft Paper
 - Read `.knowledge-base.md` for context
 - Write `papers/latex/$TOPIC.tex` — minimum 20 pages
-- Use the preamble skeleton in `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` unchanged: `\documentclass[11pt,letterpaper]{article}`, T1 fontenc, lmodern, microtype, the 6in measure (`left=1.25in,right=1.25in`), indented paragraphs with no parskip, footnotesize sidebar. Never 12pt, never `margin=1in`. Title block via `\maketitle`; abstract via the `abstract` environment as one paragraph of 150 to 250 words with no citations. Run the format check in paper-format.md before Stage 7 and fix every FAIL line.
+- Use the preamble skeleton in `${CLAUDE_PLUGIN_ROOT}/references/paper-format.md` unchanged: `\documentclass[11pt,letterpaper]{article}`, T1 fontenc, lmodern, microtype, `\usepackage[margin=1in]{geometry}` (one-inch margins), indented paragraphs with no parskip, footnotesize sidebar. Never 12pt, never override the geometry. Title block via `\maketitle`; abstract via the `abstract` environment as one paragraph of 150 to 250 words with no citations. Run the format check in paper-format.md before Stage 7 and fix every FAIL line.
 - Define theorem environments: Theorem, Proposition, Lemma, Corollary, Definition, Remark
 - Required sections: Abstract, Introduction, Definitions (or Mathematical framework when the topic is mathematical), topic-specific sections, Discussion or Limitations, Conclusion, References. Headings are plain noun phrases in sentence case (see paper-format.md).
 - Include formal definitions, theorems with proofs, and concrete examples
@@ -96,9 +96,9 @@ Acquire, run ONE `"$GEMINI"` or `"$CODEX"` command, release. Edit the paper only
 
 ### Stages 3–4 — Gemini Review-Fix Loop (MANDATORY — NEVER skip)
 
-This is an iterative loop. You submit the paper to Gemini for external review, fix the issues, then re-submit until the reviewer marks it publishable. **Maximum 4 rounds** (to bound cost), but you MUST keep looping until either:
+This is an iterative loop. You submit the paper to Gemini for external review, fix the issues, then re-submit until the reviewer marks it publishable. **Maximum 3 rounds** (to bound cost), but you MUST keep looping until either:
 - Gemini's verdict is "publishable" / "accept" / no critical or major issues remain, OR
-- You hit the 4-round cap
+- You hit the 3-round cap
 
 **YOU MUST RUN THE BASH COMMAND BELOW EACH ROUND. DO NOT SELF-REVIEW INSTEAD.**
 
@@ -155,7 +155,7 @@ exit 1
 
 Leave the invalid round file in place (the orchestrator overwrites it with the referee's review). You still may NOT self-review, and you may NOT write a stub/`SKIPPED:` file — both remain pipeline failures.
 
-For reference, the known-good direct invocation of the underlying reviewer is `agy -p "<prompt with full paper source inlined>" --model "Gemini 3.1 Pro (High)"` with NO `--effort` flag (agy 1.1.23+ rejects `--effort` for models whose name already carries effort) — passing a file path does not work (print mode does not read files), and reusing a warm session can return stale output (use `--new-project` when retrying).
+For reference, the known-good direct invocation of the underlying reviewer is `agy -p "<prompt with full paper source inlined>" --model "Gemini 4 Argon (High)"` with NO `--effort` flag (agy 1.1.23+ rejects `--effort` for models whose name already carries effort) — passing a file path does not work (print mode does not read files), and reusing a warm session can return stale output (use `--new-project` when retrying).
 
 **Step B — Check verdict:**
 
@@ -189,7 +189,7 @@ Copy the final round's review as the canonical review file:
 Requirements:
 - At least 1 review round file must exist
 - `reviews/$TOPIC-review.md` must exist (the final/canonical review)
-- Final verdict should be ACCEPT or MINOR REVISIONS (if not, you hit the 4-round cap — log it)
+- Final verdict should be ACCEPT or MINOR REVISIONS (if not, you hit the 3-round cap — log it)
 
 ### Stage 5 — Codex Formatting Review-Fix Loop (MANDATORY — NEVER skip)
 

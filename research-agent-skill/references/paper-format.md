@@ -124,7 +124,7 @@ grep -nE 'font=\\(Large|large|LARGE)' "$T" && echo "FAIL sidebar font too large"
 ```
 
 ## Quality checklist
-- [ ] Skeleton preamble used unchanged; 11pt; 6in measure
+- [ ] Skeleton preamble used unchanged; 11pt; one-inch margins (`margin=1in`)
 - [ ] Title is a short Title Case noun phrase; series line is the only subtitle
 - [ ] Abstract: one paragraph, 150 to 250 words, no citations
 - [ ] Every heading is a plain noun phrase in sentence case

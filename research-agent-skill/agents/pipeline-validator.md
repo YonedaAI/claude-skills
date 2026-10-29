@@ -194,7 +194,7 @@ for tex in papers/latex/*.tex; do
     || { echo "FAIL: $tex abstract is $words words with $breaks paragraph breaks (must be 150 to 250 words, one paragraph)"; fail=1; }
   grep -m1 -oE '\\documentclass\[[^]]*\]' "$tex" | grep -qE '1[01]pt' \
     && echo "PASS: $tex body size" || { echo "FAIL: $tex is not 10pt or 11pt"; fail=1; }
-  grep -q 'margin=1in' "$tex" && { echo "FAIL: $tex uses margin=1in (6.5in measure); use the paper-format.md geometry"; fail=1; }
+  grep -q 'margin=1in' "$tex" || { echo "FAIL: $tex must use \\usepackage[margin=1in]{geometry} (paper-format.md)"; fail=1; }
   grep -q '\\maketitle' "$tex" || { echo "FAIL: $tex has no \\maketitle"; fail=1; }
 done
 ```
