@@ -31,7 +31,7 @@ export RESEARCH_CODEX_MODEL="${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}"
 export RESEARCH_CODEX_EFFORT="${RESEARCH_CODEX_EFFORT:-medium}"
 ```
 
-**You have no `Skill` tool** — `codex:rescue` cannot be invoked from this agent. Run the direct command in Phase 5. **Every `"$CODEX"` call holds the project mutex** `$PROJECT_ROOT/.review.lock` (concurrent codex/agy calls from parallel agents return empty output); hold it for one call only, never while you edit code.
+**You have no `Skill` tool** — `codex:rescue` cannot be invoked from this agent. Run the direct command in Phase 5. **Every `"$CODEX"` call claims one `.codex.slot.$n` lane** (3 Codex lanes, independent of the 3 AGY `.review.slot.$n` lanes); hold it for one call only, never while you edit code.
 
 ## Validation Philosophy
 
@@ -196,8 +196,13 @@ Iterative loop: run Codex → fix → re-run Codex → if still NEEDS_FIX, fix a
     echo "round: N" >> "$ROUND_FILE"
     echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
     echo "---" >> "$ROUND_FILE"
-    LOCK="$PROJECT_ROOT/.review.lock"
-    until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+SLOT=""
+for n in 1 2 3; do
+  cand="$PROJECT_ROOT/.codex.slot.$n"
+  if mkdir "$cand" 2>/dev/null; then SLOT="$cand"; break; fi
+done
+[ -n "$SLOT" ] || { echo "all Codex lanes busy"; exit 1; }
+trap 'rmdir "$SLOT" 2>/dev/null' EXIT INT TERM
     timeout 1800 env -u OPENAI_API_KEY "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read the Haskell files under src/ and the Lean files under lean/ ONLY (do not explore other directories). Review for: (1) CROSS-AUDIT CONSISTENCY — every class in src/Taxonomy/ and every instance in src/<topic>/Instances.hs must mirror a Lean name in lean/; flag every name/type divergence and every claim in the Haskell layer that overstates its status (Haskell is computational evidence, never proof, never 'verified by Lean'); (2) no family class redefined outside src/Taxonomy/; (3) type safety, missing type signatures, incomplete patterns, idiomatic style; (4) QuickCheck properties actually match their named paper results. List issues with file:line references and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
 

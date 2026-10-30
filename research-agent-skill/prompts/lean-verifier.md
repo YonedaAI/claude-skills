@@ -20,7 +20,7 @@ Follow the one your task names.
    NOT add `sorry`-ridden theorems to a module. If a `sorry` is unavoidable for a conditional
    result, its label must be `conditional` or `conjecture` — never `machine-checked`.
 5. You may never review your own code. The consolidated Codex review is run by the assembler.
-6. Every Codex call is wrapped in the `.review.lock` mutex and prefixed with
+6. Every Codex call claims one `.codex.slot.$n` lane and prefixed with
    `env -u OPENAI_API_KEY` (the env var silently flips Codex onto API billing).
 7. Keep claim-status labels OUT of the paper `.tex` files. They live in `verification/`.
 8. Mathlib style: `snake_case` names, `Prop`-valued `theorem`/`lemma`, structures for data,
@@ -104,8 +104,13 @@ Run after all module writers finish.
 4. Run ONE consolidated Codex review of all `.lean` files (max 2 fix passes):
 
    ```bash
-   LOCK="$PROJECT_ROOT/.review.lock"
-   until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+SLOT=""
+for n in 1 2 3; do
+  cand="$PROJECT_ROOT/.codex.slot.$n"
+  if mkdir "$cand" 2>/dev/null; then SLOT="$cand"; break; fi
+done
+[ -n "$SLOT" ] || { echo "all Codex lanes busy"; exit 1; }
+trap 'rmdir "$SLOT" 2>/dev/null' EXIT INT TERM
    ROUND_FILE=reviews/lean-codex-review-round-N.md
    echo "type: lean" >> "$ROUND_FILE"
    timeout 1800 env -u OPENAI_API_KEY "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the files under lean/ (do not explore other directories). Review them for: type correctness, missing hypotheses, over-strong claims vs their paper statements, incomplete patterns, unsound axioms or sorry usage, Mathlib idempotence (no re-proving Mathlib), clarity of namespaces. List issues with file:line references and concrete fixes. End your response with a VERDICT line — exactly one of: VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
