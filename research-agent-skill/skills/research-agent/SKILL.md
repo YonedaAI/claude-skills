@@ -123,8 +123,9 @@ The resolver deliberately skips `fnm` node-version installs: those pin a stale n
 | Var | Default | Notes |
 |---|---|---|
 | `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | the only AGY path |
-| `RESEARCH_GEMINI_MODEL` | `gemini-4-argon-high` | label written into review files |
-| `AGY_REVIEW_MODEL` | `Gemini 4 Argon (High)` | **what agy actually runs** — effort is in the name; the shim ignores the caller's `-m` |
+| `RESEARCH_GEMINI_MODEL` | `gemini-3.8-flash-medium` | label written into review files |
+| `AGY_REVIEW_MODEL` | `Gemini 3.8 Flash (Medium)` | **what agy actually runs** — effort is in the name; the shim ignores the caller's `-m`. Quota-aware: Argon draws a separate weekly bucket (~13% left 2026-10-29), Flash shares the large Gemini bucket |
+| `AGY_REVIEW_FALLBACK_MODEL` | `Gemini 4 Argon (High)` | auto-switch target when the primary model fails (quota/interruption) |
 | `AGY_REVIEW_EFFORT` | *(leave unset)* | `agy` 1.1.23+ rejects `--effort` on effort-bearing names |
 | `RESEARCH_CODEX_BIN` | *(unset — resolved at runtime)* | optional override; otherwise `command -v codex`, skipping fnm paths |
 | `RESEARCH_CODEX_MODEL` | `gpt-6.1-sol` | formatting/code reviewer |

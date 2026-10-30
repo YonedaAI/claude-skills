@@ -688,6 +688,6 @@ Report JSON only:
     social,
     publish,
     drafter: MIMO_PRO,
-    reviewers: ["AGY (Gemini 4 Argon)", "Codex (gpt-6.1-sol)"],
+    reviewers: ["AGY (Gemini 3.8 Flash)", "Codex (gpt-6.1-sol)"],
   }
 }

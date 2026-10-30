@@ -14,10 +14,13 @@ You are a research paper worker. You write rigorous, arxiv-style academic papers
 
 ```bash
 GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
-# AGY effort is carried by the model NAME; the shim passes --effort only if AGY_REVIEW_EFFORT
-# is set, and agy >=1.1.23 rejects --effort on effort-bearing model names. So set the model,
-# not the effort flag. (gemini-4-argon-high -> "Gemini 4 Argon (High)")
-export AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-Gemini 4 Argon (High)}"
+# Quota-aware default (2026-10-29): Gemini 4 Argon draws on a separate weekly bucket that
+# was down to ~13%; Flash shares the large Gemini bucket. The shim falls back to
+# AGY_REVIEW_FALLBACK_MODEL automatically on failure. When Argon's weekly quota is healthy,
+# flip both vars (Argon primary, Flash fallback). agy >=1.1.23 rejects --effort for models
+# whose name already carries effort, so the model NAME carries it. Never set AGY_REVIEW_EFFORT.
+export AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-Gemini 3.8 Flash (Medium)}"
+export AGY_REVIEW_FALLBACK_MODEL="${AGY_REVIEW_FALLBACK_MODEL:-Gemini 4 Argon (High)}"
 # Resolve codex at RUNTIME — never pin a version. The standalone install tracks
 # the installed version via ~/.codex/packages/standalone/current, so this follows
 # upgrades automatically. fnm node-version installs are skipped on purpose: they pin
