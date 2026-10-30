@@ -1,22 +1,28 @@
 ---
 name: research-agent
-description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel MiMo drafting agents with AGY (Gemini) scientific peer review, Codex formatting checks, optional Haskell verification, website deployment, multi-platform social posts, and Slack notifications."
+description: "Use when the user asks to research topics, generate research papers, run a research pipeline, create academic papers with peer review, or invokes /research-agent. Orchestrates parallel drafting agents with AGY (Gemini) scientific peer review, Codex formatting checks, optional Haskell/Lean verification, website deployment, multi-platform social posts, and Slack notifications."
 ---
 
-# research-agent — MiMoCode skill
+# research-agent — shared skill body (core)
 
-MiMo drafts. AGY and Codex review. A Dynamic Workflow sequences eight phases and fails
-closed at every gate. This skill is the entry point; the orchestration lives in
-`workflows/research-agent.js` and the stage procedures in `prompts/`.
+This file is the ONE body shared by every harness. Harness entry stubs
+(`harness/*/SKILL.md`) point here; content is edited ONCE in `core/` and never forked.
+The orchestrating host model drafts every artifact; external reviewers review. An 8-phase
+Dynamic Workflow sequences the pipeline and fails closed at every gate. The orchestration
+lives in `core/workflows/research-agent.js` and the stage procedures in `core/prompts/`.
+
+**Core invariant: reviewers are never the main model drafting.** Science review = AGY,
+code/format review = Codex (Claude on family collision — see
+`core/references/harness-matrix.md` and `settings/research-agent.settings.json`).
 
 ## What this is NOT
 
-- **Not Claude Code.** No `Agent` tool, no `mode: "bypassPermissions"`, no
-  `${CLAUDE_PLUGIN_ROOT}`, no `codex:rescue` skill. Do not invoke any of those.
-- **Not a Claude-model pipeline.** Nothing here drafts on `opus`/`sonnet`/`haiku`. If you see
-  those names in output, something is wrong.
-- **Not self-reviewing.** MiMo authors every artifact. The author may never review its own
-  work — that is a pipeline failure, not a shortcut.
+- **Not self-reviewing.** The host model authors every artifact. The author may never
+  review its own work — that is a pipeline failure, not a shortcut.
+- **Not a forked skill.** Prompt and reference bodies live only under `core/`. A harness
+  stub carries at most an entry; if you find prompt content outside `core/`, delete it.
+- **Not a shared global install.** Each harness gets its own self-contained copy
+  (see `install.sh`); never install into `~/.agents/skills`.
 
 ## Invocation
 
@@ -44,12 +50,14 @@ closed at every gate. This skill is the entry point; the orchestration lives in
 
 1. **Parse** the request into the `args` JSON shape below.
 2. **Stage the workspace.** The pipeline writes into a project directory. Copy the skill's
-   `prompts/` and `references/` directories into that project root so the subagents can read
-   them at `prompts/*.md` and `references/*.md`. If they are not present, every agent will
-   fail on the first line of its procedure.
+   `core/prompts/` and `core/references/` directories into that project root (as `prompts/`
+   and `references/`), and copy `settings/research-agent.settings.json` to
+   `settings/research-agent.settings.json` in the project root, so the subagents can read
+   them at `prompts/*.md`, `references/*.md`, and `settings/*.json`. If they are not
+   present, every agent will fail on the first line of its procedure.
 3. **Make the workflow discoverable** (only when the `workflow` tool is present): if
    `<project>/.mimocode/workflows/research-agent.js` is absent, copy this skill's
-   `workflows/research-agent.js` there first — the tool only finds scripts at
+   `core/workflows/research-agent.js` there first — the tool only finds scripts at
    `.mimocode/workflows/<name>.js` (or `.claude/workflows/`) relative to the run workspace.
    The tool is registered only at process launch (`MIMOCODE_EXPERIMENTAL_WORKFLOW_TOOL=true`);
    if it is absent from the tool surface, do NOT try to enable it mid-session — use the
@@ -96,10 +104,21 @@ closed at every gate. This skill is the entry point; the orchestration lives in
 }
 ```
 
-## Models — measured, not assumed
+## Models — the host model drafts
 
-Your MiMo plan serves exactly two chat models (verified against
-`https://token-plan-sgp.xiaomimimo.com/v1`):
+The orchestrating model IS the drafter: MiMo under MiMoCode, Claude under Claude Code,
+the session's Codex model under Codex, GLM under opencode. No lookup is needed to write —
+you are the drafter. `RESEARCH_DRAFTER_MODEL` names you for swap decisions and reports.
+
+Reviewer defaults and swap rules live in `settings/research-agent.settings.json`
+(never hardcode reviewer model strings in prompts). Family chain for swap decisions:
+`RESEARCH_DRAFTER_MODEL` env → host config (`~/.codex/config.toml` model;
+`~/.config/opencode/opencode.jsonc` model) → unknown. Unknown family → AGY science +
+Codex code (host-disjoint vendors) with `noSelfReview: true` enforced in every prompt.
+Never guess a reviewer that could equal the drafter.
+
+Measured MiMo plan data (when the host is MiMoCode) — your MiMo plan serves exactly two
+chat models (verified against `https://token-plan-sgp.xiaomimimo.com/v1`):
 
 | Model | Use for |
 |---|---|
@@ -123,12 +142,12 @@ The resolver deliberately skips `fnm` node-version installs: those pin a stale n
 | Var | Default | Notes |
 |---|---|---|
 | `RESEARCH_GEMINI_BIN` | `/Users/mlong/.local/bin/agy-review-shim` | the only AGY path |
-| `RESEARCH_GEMINI_MODEL` | `gemini-3.8-flash-medium` | label written into review files |
-| `AGY_REVIEW_MODEL` | `Gemini 3.8 Flash (Medium)` | **what agy actually runs** — effort is in the name; the shim ignores the caller's `-m`. Quota-aware: Argon draws a separate weekly bucket (~13% left 2026-10-29), Flash shares the large Gemini bucket |
-| `AGY_REVIEW_FALLBACK_MODEL` | `Gemini 4 Argon (High)` | auto-switch target when the primary model fails (quota/interruption) |
+| `RESEARCH_GEMINI_MODEL` | *(from settings `reviewers.science.model`)* | label written into review files |
+| `AGY_REVIEW_MODEL` | *(from settings `reviewers.science.model`)* | **what agy actually runs** — effort is in the name; the shim ignores the caller's `-m`. Quota-aware: the fallback draws a separate weekly bucket; the primary shares the large Gemini bucket |
+| `AGY_REVIEW_FALLBACK_MODEL` | *(from settings `reviewers.science.fallback`)* | auto-switch target when the primary model fails (quota/interruption) |
 | `AGY_REVIEW_EFFORT` | *(leave unset)* | `agy` 1.1.23+ rejects `--effort` on effort-bearing names |
 | `RESEARCH_CODEX_BIN` | *(unset — resolved at runtime)* | optional override; otherwise `command -v codex`, skipping fnm paths |
-| `RESEARCH_CODEX_MODEL` | `gpt-6.1-sol` | formatting/code reviewer |
+| `RESEARCH_CODEX_MODEL` | *(from settings `reviewers.code.model`)* | formatting/code reviewer |
 | `RESEARCH_CODEX_EFFORT` | `medium` | mechanical lint — high buys little here |
 
 - The plain `gemini` CLI is **deprecated** and exits immediately. Never fall back to it.
@@ -150,7 +169,7 @@ The resolver deliberately skips `fnm` node-version installs: those pin a stale n
 7. Every Slack message passes `slack_lint_msg` first: standard markdown `[label](url)` and
    `**bold**`. The angle-bracket `<https://…>` form is **wrong** and a bare URL is a lint failure.
 
-## Slack
+## Slack (MiMoCode host)
 
 Slack is a **local** MCP server named `slack` in `~/.config/mimocode/mimocode.jsonc`
 (`@modelcontextprotocol/server-slack`, bot-token auth, team `TAYUPH83U`). It is MiMoCode-owned —
@@ -175,11 +194,16 @@ five points minimum: worker complete, synthesis, Haskell, website deploy, final 
 
 ```
 research-agent-skill/
-├── skills/research-agent/SKILL.md   # this file
-├── workflows/research-agent.js      # the 8-phase Dynamic Workflow
-├── prompts/*.md                     # stage procedures (frontmatter-free)
-└── references/*.md                  # writing + format standards (authoritative)
+├── core/
+│   ├── SKILL.body.md                # this file (edited ONCE)
+│   ├── prompts/*.md                 # stage procedures (frontmatter-free)
+│   ├── references/*.md              # writing + format standards (authoritative)
+│   └── workflows/research-agent.js  # the 8-phase Dynamic Workflow
+├── harness/{mimo,opencode,claude,codex}/  # thin entry stubs only
+├── settings/                        # reviewer + swap-rule config (one copy)
+├── install.sh
+└── README.md
 ```
 
-The `references/` documents are the standards of record. When this skill and a reference
-disagree, the reference wins.
+The `core/references/` documents are the standards of record. When this body and a
+reference disagree, the reference wins.

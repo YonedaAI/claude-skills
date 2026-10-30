@@ -8,8 +8,11 @@ Node is managed by `fnm` on this system. Prep `PATH` and `$CODEX` absolute path 
 GEMINI="${RESEARCH_GEMINI_BIN:-/Users/mlong/.local/bin/agy-review-shim}"
 # Quota-aware default (2026-10-29): Flash primary (large Gemini bucket), Argon fallback
 # (separate weekly bucket, was ~13% left). The shim switches automatically on failure.
-export AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-Gemini 3.8 Flash (Medium)}"
-export AGY_REVIEW_FALLBACK_MODEL="${AGY_REVIEW_FALLBACK_MODEL:-Gemini 4 Argon (High)}"
+# Model NAMES live in settings/research-agent.settings.json (staged to the project root);
+# the shim ignores the caller's -m anyway — these are the labels written into review files.
+# First "model" key in the file = reviewers.science.model (schema order is fixed).
+export AGY_REVIEW_MODEL="${AGY_REVIEW_MODEL:-$(grep -m1 '"model"' settings/research-agent.settings.json | sed 's/.*"model"[[:space:]]*:[[:space:]]*"//;s/".*//')}"
+export AGY_REVIEW_FALLBACK_MODEL="${AGY_REVIEW_FALLBACK_MODEL:-$(grep -m1 '"fallback"' settings/research-agent.settings.json | sed 's/.*"fallback"[[:space:]]*:[[:space:]]*"//;s/".*//')}"
 # Resolve codex at RUNTIME — never pin a version. The standalone install tracks
 # the installed version via ~/.codex/packages/standalone/current, so this follows
 # upgrades automatically. fnm node-version installs are skipped on purpose: they pin

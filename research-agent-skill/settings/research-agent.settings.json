@@ -1,0 +1,18 @@
+{
+  "reviewers": {
+    "science": { "provider": "agy", "model": "Gemini 3.8 Flash (Medium)", "fallback": "Gemini 4 Argon (High)" },
+    "code":    { "provider": "codex", "model": "gpt-6.1-sol" }
+  },
+  "swapRules": [
+    { "hostFamily": ["gemini"], "lane": "science", "reviewer": { "provider": "claude" } },
+    { "hostFamily": ["openai", "codex"], "lane": "code", "reviewer": { "provider": "claude" } }
+  ],
+  "noSelfReview": true,
+  "entryFormat": "skill-md",
+  "installRoot": {
+    "mimo": ["<project>/.mimocode/skills/", "~/.mimocode/skills/"],
+    "opencode": "~/.config/opencode/skills/",
+    "claude": "~/.claude/plugins/",
+    "codex": "~/.codex/skills/"
+  }
+}
