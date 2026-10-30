@@ -193,6 +193,7 @@ install_claude() {
   sync_dir "$SKILL_ROOT/harness/claude/commands" "$root/commands"
   sync_dir "$SKILL_ROOT/harness/claude/agents" "$root/agents"
   sync_dir "$SKILL_ROOT/harness/claude/skills" "$root/skills"
+  sync_file "$SKILL_ROOT/harness/claude/skills/research-agent/SKILL.md" "$root/SKILL.md"
   sync_core "$root"
   if [ "$DRY_RUN" = 1 ]; then
     log "WRITE $HOME/.claude/plugins/installed_plugins.json entry research-agent@local-skills"
