@@ -77,12 +77,12 @@ __SLACK_MSG_END__
 
 Run these regex checks:
 
-The Slack MCP tool `slack_slack_post_message` (MiMoCode server `slack`, local stdio, bot token auth) takes **standard markdown**: links must be `[label](https://...)`, bold is `**text**`. The Slack-native `<https://...>` form is WRONG for this tool (renders literally) and a bare URL lets Slack's auto-linker swallow adjacent markers.
+The Slack MCP tool `slack_slack_post_message` (MiMoCode server `slack`, local stdio, bot token auth) delivers Slack-native mrkdwn — VERIFIED against Slack's parsed blocks 2026-10-29: bold is `*single-asterisk*`, links are `<https://url|label>`. The markdown forms render LITERALLY: `**double**` shows raw asterisks and `[label](url)` shows raw brackets. A bare URL lets Slack's auto-linker swallow adjacent markers.
 
 ```bash
-# Rule 1: every http/https URL must be inside a markdown link — i.e. the scheme
-# is immediately preceded by '(' as in [label](https://...). Anything else is bare.
-bare=$(grep -nE '(^|[^(<])https?://' "$MSG_FILE" || true)
+# Rule 1: every http/https URL must be inside Slack-native <https://url|label> form —
+# the scheme must be immediately preceded by '<'. Anything else is bare/mangled.
+bare=$(grep -nE '(^|[^<])https?://' "$MSG_FILE" || true)
 if [ -n "$bare" ]; then
   echo "FAIL: bare URL(s) in Slack message — use [label](url):"
   echo "$bare" | sed 's/^/  /'
@@ -91,27 +91,26 @@ else
   echo "PASS: all URLs are markdown links"
 fi
 
-# Rule 2: catch a link immediately followed by a bold marker — the auto-linker
-# previously folded '*GitHub:*' into the link text.
-bleed=$(grep -nE '\)[[:space:]]*\*' "$MSG_FILE" || true)
+# Rule 2: double asterisks render literally in Slack — bold is single-asterisk only.
+bleed=$(grep -n '\*\*' "$MSG_FILE" || true)
 if [ -n "$bleed" ]; then
-  echo "FAIL: link immediately followed by a bold marker — put each link on its own bold-label line:"
+  echo "FAIL: **double-asterisk** bold renders literally in Slack — use *single-asterisk* bold:"
   echo "$bleed" | sed 's/^/  /'
   fail=1
 fi
 
-# Rule 3: reject Slack-native angle-bracket links — wrong for this MCP tool.
-angle=$(grep -nE '<https?://' "$MSG_FILE" || true)
+# Rule 3: markdown-style [label](url) renders with literal brackets — forbidden.
+angle=$(grep -nE '\[[^]]*\]\(<?https?://' "$MSG_FILE" || true)
 if [ -n "$angle" ]; then
-  echo "FAIL: angle-bracket URL(s) — this tool takes markdown, use [label](url):"
+  echo "FAIL: markdown-link syntax renders literally in Slack — use <https://url|label>:"
   echo "$angle" | sed 's/^/  /'
   fail=1
 fi
 
-# Rule 4: bold markers must be balanced (even count of '**' on each line).
-unbalanced=$(awk '{ n=gsub(/\*\*/,"&"); if (n % 2) print NR": "$0 }' "$MSG_FILE" || true)
+# Rule 4: single-asterisk bold must be balanced per line (rule 2 already banned '**').
+unbalanced=$(awk '{ n=gsub(/\*/,"&"); if (n % 2) print NR": "$0 }' "$MSG_FILE" || true)
 if [ -n "$unbalanced" ]; then
-  echo "FAIL: unbalanced '**' bold markers on line(s):"
+  echo "FAIL: unbalanced '*' bold markers on line(s):"
   echo "$unbalanced" | sed 's/^/  /'
   fail=1
 fi

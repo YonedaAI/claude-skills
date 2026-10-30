@@ -99,9 +99,7 @@ Run this BEFORE the first review round — `references/writing-standard.md` is a
 
 ### Stages 3–4 — Gemini Review-Fix Loop (MANDATORY — NEVER skip)
 
-This is an iterative loop. You submit the paper to Gemini for external review, fix the issues, then re-submit until the reviewer marks it publishable. **Maximum 3 rounds** (to bound cost), but you MUST keep looping until either:
-- Gemini's verdict is "publishable" / "accept" / no critical or major issues remain, OR
-- You hit the 3-round cap
+This is an iterative loop. You submit the paper to Gemini for external review, fix the issues, then re-submit until the reviewer marks it publishable. **THERE IS NO ROUND CAP — a paper must NEVER end with REJECT or MAJOR REVISIONS outstanding.** Keep looping until the verdict is ACCEPT or MINOR REVISIONS (every critical and major issue resolved). From round 4 onward use FOCUSED re-reviews: instruct the reviewer to verify ONLY the issues listed in the prior round files (FIXED / NOT FIXED per issue) and to raise new issues only if a fix introduced them.
 
 **YOU MUST RUN THE BASH COMMAND BELOW EACH ROUND. DO NOT SELF-REVIEW INSTEAD.**
 
@@ -192,7 +190,7 @@ Copy the final round's review as the canonical review file:
 Requirements:
 - At least 1 review round file must exist
 - `reviews/$TOPIC-review.md` must exist (the final/canonical review)
-- Final verdict should be ACCEPT or MINOR REVISIONS (if not, you hit the 3-round cap — log it)
+- Final verdict MUST be ACCEPT or MINOR REVISIONS — anything else means keep looping (focused re-reviews from round 4); never stop with REJECT/MAJOR outstanding
 
 ### Stage 5 — Codex Formatting Review-Fix Loop (MANDATORY — NEVER skip)
 
@@ -235,7 +233,7 @@ Do NOT write a `SKIPPED:` stub. The orchestrator will catch the non-zero exit an
 
 - **PASS**: copy this round to canonical (`cp reviews/$TOPIC-codex-review-round-N.md reviews/$TOPIC-codex-review.md`), proceed to Stage 6.
 - **NEEDS_FIX** (or no VERDICT line, treated as NEEDS_FIX): proceed to Step C, then back to Step A with N+1.
-- If N == 3 (cap reached, 2 fix passes already done): copy this round to canonical and proceed to Stage 6, but log "WARN: hit Codex 2-pass cap with NEEDS_FIX still pending".
+- NEVER stop at NEEDS_FIX: keep fixing and re-running (no round cap) until PASS. From round 4 onward the review is FOCUSED — ask Codex to verify only the previously listed issues.
 
 **Step C — Fix ALL issues from this round:**
 1. Read `reviews/$TOPIC-codex-review-round-N.md` — the actual file on disk, not your memory of it.

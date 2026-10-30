@@ -632,7 +632,7 @@ You are the publish agent. Read prompts/pipeline-validator.md and follow it exac
    status pointers, author block).
 2. Compose the Slack summary message FIRST and keep its exact text: project, volume count,
    synthesis, Lean machine-checked claim count (from verification/claim-status-registry.md),
-   site URL, repo URL — clean links only (every URL inside [label](url), **bold** only, no bare
+   site URL, repo URL — clean links only (every URL as <https://url|label>, bold as *single-asterisk*, never **double** or [label](url), no bare
    or angle-bracket URLs). This text is the SLACK_MESSAGE input to the validator.
 3. Run the FULL pipeline validator checklist from prompts/pipeline-validator.md with
    PROJECT_ROOT=$PWD, PROJECT="${project}", GITHUB_ORG="${githubOrg}" and SLACK_MESSAGE=<the
