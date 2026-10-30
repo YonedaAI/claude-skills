@@ -49,16 +49,26 @@ echo "PROJECT_ROOT=$PROJECT_ROOT"
 
 Reviewer shim facts: `agy` 1.1.23+ rejects `--effort` for models whose name already carries effort ("Gemini 4 Argon (High)"), so the shim passes `--effort` only when `AGY_REVIEW_EFFORT` is set — do not set it. The shim logs agy's stderr to `${TMPDIR:-/tmp}/agy-review-shim.err`; **read that log first whenever a review comes back empty**.
 
-## Reviewer Mutex (wrap every single reviewer call)
+## Review Lanes (wrap every single reviewer call)
+
+Reviews run in PARALLEL LANES — 3 AGY lanes and 3 Codex lanes, on independent backends. A Codex call never waits for AGY lanes and vice versa.
 
 ```bash
-LOCK="$PROJECT_ROOT/.review.lock"
-until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-... one reviewer call ...
-rmdir "$LOCK" 2>/dev/null; trap - EXIT
+# AGY call — claim one lane:
+SLOT=""
+for n in 1 2 3; do
+  cand="$PROJECT_ROOT/.review.slot.$n"
+  if mkdir "$cand" 2>/dev/null; then SLOT="$cand"; break; fi
+done
+[ -n "$SLOT" ] || { echo "all AGY lanes busy"; exit 1; }   # sleep 60 and retry later
+trap 'rmdir "$SLOT" 2>/dev/null' EXIT INT TERM
+... ONE "$GEMINI" call ...
+rmdir "$SLOT" 2>/dev/null; trap - EXIT
+
+# Codex call — same shape with .codex.slot.$n (lanes are per backend).
 ```
 
-Acquire, run ONE `"$GEMINI"` or `"$CODEX"` command, release. Edit the paper only after `rmdir`. `.review.lock/` is git-ignored by the orchestrator.
+Acquire a lane, run ONE `"$GEMINI"` or `"$CODEX"` command, release. NEVER remove a lane you do not own — the orchestrator sweeps stale lanes. Edit the paper only after release. Lane dirs are git-ignored by the orchestrator.
 
 ## Your Pipeline (execute ALL stages sequentially — NO shortcuts)
 
@@ -117,7 +127,7 @@ This is an iterative loop. You submit the paper to Gemini for external review, f
     echo "" >> "$R"
     LOCK="$PROJECT_ROOT/.review.lock"
     until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
-    cat papers/latex/$TOPIC.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and prose quality against this house style: rigorous scholarly prose that prioritizes precision, clarity, and argumentative flow; one identifiable claim per paragraph supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler, signposting, nominalization, or nested subordination; complexity from the subject, not the prose. Quote the weakest three paragraphs with line numbers and rewrite one as a model. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
+    cat papers/latex/$TOPIC.tex | "$GEMINI" -m $RESEARCH_GEMINI_MODEL -p "Peer review this research paper. Evaluate: mathematical correctness, clarity, completeness, logical structure, LaTeX quality, and prose quality against this house style: rigorous scholarly prose that prioritizes precision, clarity, and argumentative flow; one identifiable claim per paragraph supported by evidence, reasoning, or citation; findings stated directly before qualification; ordinary language where it is exactly as precise as technical language; no filler, signposting, nominalization, or nested subordination; complexity from the subject, not the prose. Do NOT request confession-style limitations, self-undermining caveats, or 'chief limitation' framing — scope belongs in axiom-relative statements, and proof status belongs in the claim ledger. Quote the weakest three paragraphs with line numbers and rewrite one as a model. Output structured feedback organized by severity (critical, major, minor) with specific line references. End your review with a VERDICT line — one of: VERDICT: REJECT (critical issues remain), VERDICT: MAJOR REVISIONS (major issues remain), VERDICT: MINOR REVISIONS (only minor issues), VERDICT: ACCEPT (publishable as-is)." >> "$R"
     GEMINI_RC=$?
     rmdir "$LOCK" 2>/dev/null; trap - EXIT
     echo "reviewer exit: $GEMINI_RC"

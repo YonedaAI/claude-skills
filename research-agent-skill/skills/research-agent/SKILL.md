@@ -133,7 +133,7 @@ The resolver deliberately skips `fnm` node-version installs: those pin a stale n
 
 - The plain `gemini` CLI is **deprecated** and exits immediately. Never fall back to it.
 - Every reviewer call holds the project-wide `.review.lock` mutex — one call per lock hold.
-- Review rounds: AGY max **3**, Codex max **2** fix passes.
+- Review rounds: AGY max **3**, Codex max **2** fix passes. Reviews run in parallel lanes — 3 AGY (`.review.slot.1..3`) + 3 Codex (`.codex.slot.1..3`), independent backends; never remove a lane you don't own.
 - Review files: `reviews/<topic>-review-round-N.md` (AGY) and `*-codex-review*` (Codex).
   A `SKIPPED` stub, a header-only file, or a round-1-only non-publishable verdict is a
   **pipeline failure**, not a pass.

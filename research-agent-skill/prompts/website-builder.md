@@ -318,7 +318,7 @@ module.exports = {
 
 ### 5b. Codex Website Review (MANDATORY — before any deploy)
 
-Run ONE review of the site source after the build succeeds and BEFORE deploying, with up to 2 fix passes. Resolve `$CODEX` exactly as `prompts/research-worker.md` does; hold the `.review.lock` for one call only:
+Run ONE review of the site source after the build succeeds and BEFORE deploying, with up to 2 fix passes. Resolve `$CODEX` exactly as `prompts/research-worker.md` does; claim one `.codex.slot.$n` lane for one call only:
 
 ```bash
 mkdir -p reviews
@@ -329,8 +329,13 @@ echo "type: website" >> "$ROUND_FILE"
 echo "round: N" >> "$ROUND_FILE"
 echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ROUND_FILE"
 echo "---" >> "$ROUND_FILE"
-LOCK="$PROJECT_ROOT/.review.lock"
-until mkdir "$LOCK" 2>/dev/null; do sleep 30; done; trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+LOCK=""
+for n in 1 2 3; do
+  cand="$PROJECT_ROOT/.codex.slot.$n"
+  if mkdir "$cand" 2>/dev/null; then LOCK="$cand"; break; fi
+done
+[ -n "$LOCK" ] || { echo "all Codex lanes busy"; exit 1; }
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 timeout 1800 env -u OPENAI_API_KEY "$CODEX" exec -m "${RESEARCH_CODEX_MODEL:-gpt-6.1-sol}" -c "model_reasoning_effort=\"${RESEARCH_CODEX_EFFORT:-medium}\"" -s read-only --skip-git-repo-check "Read ONLY the website/ source (do not explore other directories). Review for: broken KaTeX math (raw TeX leaking into HTML), horizontal overflow at 375px width, nav collisions on small screens, missing OG/Twitter meta tags, missing run-level summary pages (e.g. a periodic-table page when the run has one), dead links, and any process/reviewer language in public copy. List issues with file:line references and concrete fixes. End with VERDICT: PASS or VERDICT: NEEDS_FIX." </dev/null >> "$ROUND_FILE" 2>&1
 rmdir "$LOCK" 2>/dev/null; trap - EXIT
 ```
